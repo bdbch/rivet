@@ -285,7 +285,19 @@ pub fn create_release_file(
 
   if let Some(details_text) = details {
     if !details_text.is_empty() {
-      content.push_str(&format!("\n\n{}", details_text));
+      // Indent each line of details by 2 spaces so it aligns under the summary
+      let indented: String = details_text
+        .lines()
+        .map(|line| {
+          if line.trim().is_empty() {
+            "".to_string()
+          } else {
+            format!("  {}", line)
+          }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
+      content.push_str(&format!("\n{}", indented));
     }
   }
 
