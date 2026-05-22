@@ -608,7 +608,7 @@ pub fn apply_release_plan(
   let manifest = ReleaseManifest::from_bumps(&plan.bumps);
   manifest.save(release_dir)?;
 
-  // Phase 4: Consume release files
+  // Phase 4: Consume release files (skip release files for packages still in pre-release mode)
   if archive {
     let archive_dir = release_dir.join("archive");
     for (_name, bump) in &plan.bumps {
@@ -620,7 +620,13 @@ pub fn apply_release_plan(
   } else {
     let mut consumed: HashSet<PathBuf> = HashSet::new();
     for (_name, bump) in &plan.bumps {
+      // Keep release files for pre-release packages — they're needed when going stable
+      let is_pre = !bump.new_version.pre.as_str().is_empty();
       for rf_path in &bump.release_files {
+        if is_pre {
+          println!("  {} (kept — pre-release)", rf_path.display());
+          continue;
+        }
         if consumed.insert(rf_path.clone()) {
           consume_release_file(rf_path)?;
           println!("  {}", rf_path.display());
