@@ -1,13 +1,13 @@
 use crate::changelog::{
-  generate_changelog_section, generate_global_changelog_section, update_changelog,
-  update_global_changelog, ChangelogEntry,
+  ChangelogEntry, generate_changelog_section, generate_global_changelog_section, update_changelog,
+  update_global_changelog,
 };
 use crate::config::{InternalDepUpdate, OxrlsConfig};
 use crate::error::{OxrlsError, Result};
 use crate::package_json::PackageJson;
-use crate::premode::{apply_pre_release, resolve_pre_release, PreState};
+use crate::premode::{PreState, apply_pre_release, resolve_pre_release};
 use crate::release::ReleaseManifest;
-use crate::release_file::{consume_release_file, parse_release_file, BumpType, ReleaseFile};
+use crate::release_file::{BumpType, ReleaseFile, consume_release_file, parse_release_file};
 use crate::version_bump::bump_version;
 use crate::workspace::{Workspace, WorkspacePackage};
 use glob::Pattern;
@@ -106,7 +106,9 @@ pub fn build_release_plan(
 
     // Apply pre-release tag if the package is in pre-mode
     // When already in pre-release, keep the base version and just increment the counter
-    let new_version = if let Some((tag, count)) = resolve_pre_release(pkg_name, config, &mut pre_state, workspace) {
+    let new_version = if let Some((tag, count)) =
+      resolve_pre_release(pkg_name, config, &mut pre_state, workspace)
+    {
       // Strip pre-release suffix, use the base version, then re-apply with new counter
       let base = semver::Version::new(old_version.major, old_version.minor, old_version.patch);
       apply_pre_release(&base, &tag, count)
@@ -254,15 +256,12 @@ fn apply_fixed_groups(
     for pkg_name in &group {
       if let Some(bump) = bumps.get(pkg_name) {
         any_bumped = true;
-        group_bumps.push((
-          pkg_name.clone(),
-          bump.old_version.clone(),
-          bump.bump_type,
-        ));
+        group_bumps.push((pkg_name.clone(), bump.old_version.clone(), bump.bump_type));
       } else if let Some(pkg) = workspace.packages.get(pkg_name)
-        && let Ok(ver) = pkg.package_json.semver_version() {
-          group_bumps.push((pkg_name.clone(), ver, BumpType::Patch));
-        }
+        && let Ok(ver) = pkg.package_json.semver_version()
+      {
+        group_bumps.push((pkg_name.clone(), ver, BumpType::Patch));
+      }
     }
 
     // Only apply fixed constraint if at least one member was bumped
@@ -404,10 +403,11 @@ fn apply_linked_groups(
     // Apply the max bump type to all group members that are in the plan
     for pkg_name in &group {
       if let Some(bump) = bumps.get_mut(pkg_name)
-        && bump.bump_type != max_bump {
-          bump.bump_type = max_bump;
-          bump.new_version = bump_version(&bump.old_version, max_bump);
-        }
+        && bump.bump_type != max_bump
+      {
+        bump.bump_type = max_bump;
+        bump.new_version = bump_version(&bump.old_version, max_bump);
+      }
     }
   }
 
@@ -539,27 +539,28 @@ pub fn apply_release_plan(
     };
 
     if let Some(deps) = field
-      && let Some(current_range) = deps.get(&update.dep_name).cloned() {
-        // Find the old and new versions for this dependency
-        if let Some(bump) = plan.bumps.get(&update.dep_name) {
-          let new_range = crate::package_json::compute_new_range(
-            &current_range,
-            &bump.old_version,
-            &bump.new_version,
+      && let Some(current_range) = deps.get(&update.dep_name).cloned()
+    {
+      // Find the old and new versions for this dependency
+      if let Some(bump) = plan.bumps.get(&update.dep_name) {
+        let new_range = crate::package_json::compute_new_range(
+          &current_range,
+          &bump.old_version,
+          &bump.new_version,
+        );
+        if new_range != current_range {
+          deps.insert(update.dep_name.clone(), new_range.clone());
+          println!(
+            "  {} {} ({}: {} -> {})",
+            update.dependent_package_name,
+            update.dep_name,
+            update.dep_type,
+            current_range,
+            new_range
           );
-          if new_range != current_range {
-            deps.insert(update.dep_name.clone(), new_range.clone());
-            println!(
-              "  {} {} ({}: {} -> {})",
-              update.dependent_package_name,
-              update.dep_name,
-              update.dep_type,
-              current_range,
-              new_range
-            );
-          }
         }
       }
+    }
 
     PackageJson::write(&update.dependent_package_path, &pkg_json)?;
   }
@@ -581,12 +582,13 @@ pub fn apply_release_plan(
       let mut type_summaries: IndexMap<BumpType, Vec<String>> = IndexMap::new();
       for rf_path in &bump.release_files {
         if let Ok(rf) = parse_release_file(rf_path)
-          && let Some(bt) = rf.releases.get(&bump.package_name) {
-            type_summaries
-              .entry(*bt)
-              .or_default()
-              .push(rf.summary.clone());
-          }
+          && let Some(bt) = rf.releases.get(&bump.package_name)
+        {
+          type_summaries
+            .entry(*bt)
+            .or_default()
+            .push(rf.summary.clone());
+        }
       }
 
       if type_summaries.is_empty() {
@@ -658,7 +660,10 @@ pub fn apply_release_plan(
       for rf_path in &bump.release_files {
         if pre_release_files.contains(rf_path) {
           crate::release_file::strip_stable_entries(rf_path, is_pre)?;
-          println!("  {} (consumed — pre-release entries already in changelog)", rf_path.display());
+          println!(
+            "  {} (consumed — pre-release entries already in changelog)",
+            rf_path.display()
+          );
           continue;
         }
         crate::release_file::archive_release_file(rf_path, &archive_dir)?;
@@ -672,7 +677,10 @@ pub fn apply_release_plan(
         if pre_release_files.contains(rf_path) {
           if consumed.insert(rf_path.clone()) {
             crate::release_file::strip_stable_entries(rf_path, is_pre)?;
-            println!("  {} (consumed — pre-release entries already in changelog)", rf_path.display());
+            println!(
+              "  {} (consumed — pre-release entries already in changelog)",
+              rf_path.display()
+            );
           }
           continue;
         }
@@ -836,10 +844,7 @@ mod tests {
   fn test_resolve_patterns_glob_with_negation() {
     let tmp = TempDir::new().unwrap();
     let ws = create_test_workspace(&tmp);
-    let patterns = vec![
-      "@scope/*".to_string(),
-      "!@scope/core".to_string(),
-    ];
+    let patterns = vec!["@scope/*".to_string(), "!@scope/core".to_string()];
     let resolved = resolve_group_patterns(&patterns, &ws.packages).unwrap();
     assert_eq!(resolved, vec!["@scope/react"]);
   }
@@ -894,10 +899,7 @@ Fix bug."#;
 
     // Fix all @scope/* EXCEPT react — only core should be affected
     let config = OxrlsConfig {
-      fixed: vec![vec![
-        "@scope/*".to_string(),
-        "!@scope/react".to_string(),
-      ]],
+      fixed: vec![vec!["@scope/*".to_string(), "!@scope/react".to_string()]],
       ..Default::default()
     };
 
@@ -1373,14 +1375,33 @@ Mixed changes for pre-release and stable."#;
     assert!(plan.bumps.contains_key("@scope/react"));
 
     // Core is in pre-mode -> should have a pre-release version
-    assert!(plan.bumps.get("@scope/core").unwrap().new_version.to_string().contains("beta"));
+    assert!(
+      plan
+        .bumps
+        .get("@scope/core")
+        .unwrap()
+        .new_version
+        .to_string()
+        .contains("beta")
+    );
     // React is not in pre-mode -> should have a normal version
-    assert!(!plan.bumps.get("@scope/react").unwrap().new_version.to_string().contains("beta"));
+    assert!(
+      !plan
+        .bumps
+        .get("@scope/react")
+        .unwrap()
+        .new_version
+        .to_string()
+        .contains("beta")
+    );
 
     // Apply the release plan
     apply_release_plan(&workspace, &plan, &config, &release_dir, false, false).unwrap();
 
     // The release file should be consumed — changelog already captured the content
-    assert!(!rf_path.exists(), "Release file should be consumed as pre-release entries were already captured");
+    assert!(
+      !rf_path.exists(),
+      "Release file should be consumed as pre-release entries were already captured"
+    );
   }
 }

@@ -191,18 +191,29 @@ mod tests {
 
     // Create a minimal workspace with the right package names
     let tmp = tempfile::TempDir::new().unwrap();
-    let root_pkg = serde_json::json!({"name": "root", "version": "1.0.0", "workspaces": ["packages/*"]});
-    std::fs::write(tmp.path().join("package.json"), serde_json::to_string_pretty(&root_pkg).unwrap()).unwrap();
+    let root_pkg =
+      serde_json::json!({"name": "root", "version": "1.0.0", "workspaces": ["packages/*"]});
+    std::fs::write(
+      tmp.path().join("package.json"),
+      serde_json::to_string_pretty(&root_pkg).unwrap(),
+    )
+    .unwrap();
     std::fs::create_dir_all(tmp.path().join("packages/core")).unwrap();
     std::fs::write(
       tmp.path().join("packages/core/package.json"),
-      serde_json::to_string_pretty(&serde_json::json!({"name": "@scope/core", "version": "1.0.0"})).unwrap(),
-    ).unwrap();
+      serde_json::to_string_pretty(&serde_json::json!({"name": "@scope/core", "version": "1.0.0"}))
+        .unwrap(),
+    )
+    .unwrap();
     std::fs::create_dir_all(tmp.path().join("packages/react")).unwrap();
     std::fs::write(
       tmp.path().join("packages/react/package.json"),
-      serde_json::to_string_pretty(&serde_json::json!({"name": "@scope/react", "version": "1.0.0"})).unwrap(),
-    ).unwrap();
+      serde_json::to_string_pretty(
+        &serde_json::json!({"name": "@scope/react", "version": "1.0.0"}),
+      )
+      .unwrap(),
+    )
+    .unwrap();
     let workspace = crate::workspace::load_workspace(tmp.path()).unwrap();
 
     let result = resolve_pre_release("@scope/core", &config, &mut pre_state, &workspace);
@@ -229,13 +240,22 @@ mod tests {
     let mut pre_state = PreState::default();
 
     let tmp = tempfile::TempDir::new().unwrap();
-    let root_pkg = serde_json::json!({"name": "root", "version": "1.0.0", "workspaces": ["packages/*"]});
-    std::fs::write(tmp.path().join("package.json"), serde_json::to_string_pretty(&root_pkg).unwrap()).unwrap();
+    let root_pkg =
+      serde_json::json!({"name": "root", "version": "1.0.0", "workspaces": ["packages/*"]});
+    std::fs::write(
+      tmp.path().join("package.json"),
+      serde_json::to_string_pretty(&root_pkg).unwrap(),
+    )
+    .unwrap();
     std::fs::create_dir_all(tmp.path().join("packages/pre-alpha")).unwrap();
     std::fs::write(
       tmp.path().join("packages/pre-alpha/package.json"),
-      serde_json::to_string_pretty(&serde_json::json!({"name": "@scope/pre-alpha", "version": "1.0.0"})).unwrap(),
-    ).unwrap();
+      serde_json::to_string_pretty(
+        &serde_json::json!({"name": "@scope/pre-alpha", "version": "1.0.0"}),
+      )
+      .unwrap(),
+    )
+    .unwrap();
     let workspace = crate::workspace::load_workspace(tmp.path()).unwrap();
 
     let result = resolve_pre_release("@scope/pre-alpha", &config, &mut pre_state, &workspace);

@@ -40,13 +40,14 @@ pub fn find_workspace_root(start_dir: &Path) -> Result<PathBuf> {
     let pkg_path = dir.join("package.json");
     if pkg_path.exists()
       && let Ok(content) = std::fs::read_to_string(&pkg_path)
-        && let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content)
-          && pkg.get("workspaces").is_some() {
-            return Ok(dir.to_path_buf());
-          }
-          // No workspaces field — a single-package repo.
-          // We don't return immediately because there might be a workspace
-          // marker in a parent directory.
+      && let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content)
+      && pkg.get("workspaces").is_some()
+    {
+      return Ok(dir.to_path_buf());
+    }
+    // No workspaces field — a single-package repo.
+    // We don't return immediately because there might be a workspace
+    // marker in a parent directory.
     // Also check for pnpm-workspace.yaml
     let pnpm_yaml = dir.join("pnpm-workspace.yaml");
     if pnpm_yaml.exists() {
@@ -122,17 +123,18 @@ pub fn load_workspace(root: &Path) -> Result<Workspace> {
             continue;
           }
           if let Ok(content) = std::fs::read_to_string(&entry)
-            && let Ok(pkg) = serde_json::from_str::<PackageJson>(&content) {
-              let name = pkg.name.clone();
-              if let Some(name) = name {
-                let dir = entry.parent().unwrap_or(&entry).to_path_buf();
-                let wp = WorkspacePackage {
-                  dir,
-                  package_json: pkg,
-                };
-                packages.entry(name.clone()).or_insert(wp);
-              }
+            && let Ok(pkg) = serde_json::from_str::<PackageJson>(&content)
+          {
+            let name = pkg.name.clone();
+            if let Some(name) = name {
+              let dir = entry.parent().unwrap_or(&entry).to_path_buf();
+              let wp = WorkspacePackage {
+                dir,
+                package_json: pkg,
+              };
+              packages.entry(name.clone()).or_insert(wp);
             }
+          }
         }
       }
     }
@@ -151,43 +153,46 @@ fn get_workspace_globs(root: &Path) -> Result<Vec<String>> {
   let pnpm_yaml = root.join("pnpm-workspace.yaml");
   if pnpm_yaml.exists()
     && let Ok(content) = std::fs::read_to_string(&pnpm_yaml)
-      && let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&content)
-        && let Some(packages) = yaml.get("packages").and_then(|v| v.as_sequence()) {
-          let globs: Vec<String> = packages
-            .iter()
-            .filter_map(|v| v.as_str().map(|s| s.to_string()))
-            .collect();
-          if !globs.is_empty() {
-            return Ok(globs);
-          }
-        }
+    && let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&content)
+    && let Some(packages) = yaml.get("packages").and_then(|v| v.as_sequence())
+  {
+    let globs: Vec<String> = packages
+      .iter()
+      .filter_map(|v| v.as_str().map(|s| s.to_string()))
+      .collect();
+    if !globs.is_empty() {
+      return Ok(globs);
+    }
+  }
 
   // Check package.json workspaces
   let root_pkg_path = root.join("package.json");
   if root_pkg_path.exists()
     && let Ok(content) = std::fs::read_to_string(&root_pkg_path)
-      && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content)
-        && let Some(workspaces) = json.get("workspaces") {
-          // Array format: ["packages/*", "apps/*"]
-          if let Some(arr) = workspaces.as_array() {
-            return Ok(
-              arr
-                .iter()
-                .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                .collect(),
-            );
-          }
-          // Object format: { "packages": ["packages/*"], "nohoist": [...] }
-          if let Some(obj) = workspaces.as_object()
-            && let Some(pkg_arr) = obj.get("packages").and_then(|v| v.as_array()) {
-              return Ok(
-                pkg_arr
-                  .iter()
-                  .filter_map(|v| v.as_str().map(|s| s.to_string()))
-                  .collect(),
-              );
-            }
-        }
+    && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content)
+    && let Some(workspaces) = json.get("workspaces")
+  {
+    // Array format: ["packages/*", "apps/*"]
+    if let Some(arr) = workspaces.as_array() {
+      return Ok(
+        arr
+          .iter()
+          .filter_map(|v| v.as_str().map(|s| s.to_string()))
+          .collect(),
+      );
+    }
+    // Object format: { "packages": ["packages/*"], "nohoist": [...] }
+    if let Some(obj) = workspaces.as_object()
+      && let Some(pkg_arr) = obj.get("packages").and_then(|v| v.as_array())
+    {
+      return Ok(
+        pkg_arr
+          .iter()
+          .filter_map(|v| v.as_str().map(|s| s.to_string()))
+          .collect(),
+      );
+    }
+  }
 
   Ok(vec![])
 }
@@ -292,10 +297,7 @@ mod tests {
         .as_deref(),
       Some("0.1.0")
     );
-    assert_eq!(
-      workspace.packages["my-single-pkg"].dir,
-      tmp.path()
-    );
+    assert_eq!(workspace.packages["my-single-pkg"].dir, tmp.path());
   }
 
   #[test]

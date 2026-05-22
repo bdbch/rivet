@@ -146,9 +146,7 @@ pub fn publish_manifest(
 
     // Determine the dist-tag: override > pre-release tag > "latest"
     let pre_tag = extract_pre_tag(current_version);
-    let dist_tag = tag_override
-      .or(pre_tag.as_deref())
-      .unwrap_or("latest");
+    let dist_tag = tag_override.or(pre_tag.as_deref()).unwrap_or("latest");
 
     let registry = get_registry(&pkg_json);
 
@@ -162,7 +160,10 @@ pub fn publish_manifest(
     if !dry_run {
       match check_version_exists(package_name, current_version) {
         Ok(true) => {
-          println!("  Version {} already exists on registry — skipped.", current_version);
+          println!(
+            "  Version {} already exists on registry — skipped.",
+            current_version
+          );
           skipped += 1;
           continue;
         }
@@ -294,7 +295,12 @@ mod tests {
     let release_dir = tmp.path().join(".oxrls");
     let result = ReleaseManifest::load(&release_dir);
     assert!(result.is_err());
-    assert!(result.unwrap_err().to_string().contains("Run `oxrls bump` first"));
+    assert!(
+      result
+        .unwrap_err()
+        .to_string()
+        .contains("Run `oxrls bump` first")
+    );
   }
 
   #[test]

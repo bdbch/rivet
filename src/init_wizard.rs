@@ -31,22 +31,20 @@ pub fn run_init_wizard(
     config.changelog = true;
 
     if is_monorepo {
-      config.generate_packages_changelog = Confirm::new(
-        "  Create a CHANGELOG.md for each package?",
-      )
-      .with_default(true)
-      .prompt()
-      .map_err(|e| OxrlsError::Other(format!("Input failed: {}", e)))?;
+      config.generate_packages_changelog =
+        Confirm::new("  Create a CHANGELOG.md for each package?")
+          .with_default(true)
+          .prompt()
+          .map_err(|e| OxrlsError::Other(format!("Input failed: {}", e)))?;
     } else {
       config.generate_packages_changelog = false;
     }
 
-    config.generate_global_changelog = Confirm::new(
-      "  Create a global CHANGELOG.md in the project root (aggregating all changes)?",
-    )
-    .with_default(false)
-    .prompt()
-    .map_err(|e| OxrlsError::Other(format!("Input failed: {}", e)))?;
+    config.generate_global_changelog =
+      Confirm::new("  Create a global CHANGELOG.md in the project root (aggregating all changes)?")
+        .with_default(false)
+        .prompt()
+        .map_err(|e| OxrlsError::Other(format!("Input failed: {}", e)))?;
   } else {
     config.changelog = false;
     config.generate_packages_changelog = false;
@@ -112,12 +110,9 @@ pub fn run_init_wizard(
       }
 
       let pkg_names: Vec<&String> = workspace.packages.keys().collect();
-      let selected = MultiSelect::new(
-        "  Select packages for this linked group:",
-        pkg_names,
-      )
-      .prompt()
-      .map_err(|e| OxrlsError::Other(format!("Selection failed: {}", e)))?;
+      let selected = MultiSelect::new("  Select packages for this linked group:", pkg_names)
+        .prompt()
+        .map_err(|e| OxrlsError::Other(format!("Selection failed: {}", e)))?;
 
       if !selected.is_empty() {
         let group: Vec<String> = selected.iter().map(|s| (*s).clone()).collect();
@@ -144,12 +139,9 @@ pub fn run_init_wizard(
       }
 
       let pkg_names: Vec<&String> = workspace.packages.keys().collect();
-      let selected = MultiSelect::new(
-        "  Select packages for this fixed group:",
-        pkg_names,
-      )
-      .prompt()
-      .map_err(|e| OxrlsError::Other(format!("Selection failed: {}", e)))?;
+      let selected = MultiSelect::new("  Select packages for this fixed group:", pkg_names)
+        .prompt()
+        .map_err(|e| OxrlsError::Other(format!("Selection failed: {}", e)))?;
 
       if !selected.is_empty() {
         let group: Vec<String> = selected.iter().map(|s| (*s).clone()).collect();

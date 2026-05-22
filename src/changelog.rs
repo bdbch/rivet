@@ -29,29 +29,30 @@ pub fn generate_changelog_section(entry: &ChangelogEntry) -> String {
 
   for (heading, bump_type) in &type_names {
     if let Some(changes) = entry.changes.get(bump_type)
-      && !changes.is_empty() {
-        lines.push(format!("### {}", heading));
-        lines.push(String::new());
-        for change in changes {
-          // Indent continuation lines by 2 spaces so they stay in the list item
-          let indented: String = change
-            .lines()
-            .enumerate()
-            .map(|(i, line)| {
-              if i == 0 {
-                format!("- {}", line)
-              } else if line.trim().is_empty() {
-                String::new()
-              } else {
-                format!("  {}", line)
-              }
-            })
-            .collect::<Vec<_>>()
-            .join("\n");
-          lines.push(indented);
-        }
-        lines.push(String::new());
+      && !changes.is_empty()
+    {
+      lines.push(format!("### {}", heading));
+      lines.push(String::new());
+      for change in changes {
+        // Indent continuation lines by 2 spaces so they stay in the list item
+        let indented: String = change
+          .lines()
+          .enumerate()
+          .map(|(i, line)| {
+            if i == 0 {
+              format!("- {}", line)
+            } else if line.trim().is_empty() {
+              String::new()
+            } else {
+              format!("  {}", line)
+            }
+          })
+          .collect::<Vec<_>>()
+          .join("\n");
+        lines.push(indented);
       }
+      lines.push(String::new());
+    }
   }
 
   // Remove trailing newline
@@ -64,10 +65,7 @@ pub fn generate_changelog_section(entry: &ChangelogEntry) -> String {
 
 /// Update a CHANGELOG.md file with a new version entry.
 /// Creates the file if it doesn't exist, prepends the new entry if it does.
-pub fn update_changelog(
-  changelog_path: &Path,
-  new_section: &str,
-) -> Result<()> {
+pub fn update_changelog(changelog_path: &Path, new_section: &str) -> Result<()> {
   // Always use # Changelog as the top-level title
   let content = if changelog_path.exists() {
     let existing = std::fs::read_to_string(changelog_path)
@@ -183,10 +181,7 @@ pub fn generate_global_changelog_section(
 }
 
 /// Update a global CHANGELOG.md in the project root.
-pub fn update_global_changelog(
-  changelog_path: &Path,
-  new_section: &str,
-) -> Result<()> {
+pub fn update_global_changelog(changelog_path: &Path, new_section: &str) -> Result<()> {
   if new_section.is_empty() {
     return Ok(());
   }

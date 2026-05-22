@@ -1,7 +1,7 @@
 use crate::error::{OxrlsError, Result};
 use indexmap::IndexMap;
-use rand::seq::SliceRandom;
 use rand::Rng;
+use rand::seq::SliceRandom;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs;
@@ -256,10 +256,12 @@ pub fn generate_release_filename(release_dir: &Path) -> PathBuf {
   let mut rng = rand::thread_rng();
   let adj = adjectives.choose(&mut rng).unwrap_or(&"quiet");
   let noun = nouns.choose(&mut rng).unwrap_or(&"fox");
-  let hash: String = (0..4).map(|_| {
-    let idx = rng.gen_range(0..16);
-    format!("{:x}", idx)
-  }).collect();
+  let hash: String = (0..4)
+    .map(|_| {
+      let idx = rng.gen_range(0..16);
+      format!("{:x}", idx)
+    })
+    .collect();
 
   let filename = format!("{}-{}-{}.md", hash, adj, noun);
   release_dir.join(filename)
@@ -289,21 +291,22 @@ pub fn create_release_file(
   let mut content = format!("---\n{}---\n\n{}", yaml_lines, summary);
 
   if let Some(details_text) = details
-    && !details_text.is_empty() {
-      // Indent each line of details by 2 spaces so it aligns under the summary
-      let indented: String = details_text
-        .lines()
-        .map(|line| {
-          if line.trim().is_empty() {
-            "".to_string()
-          } else {
-            format!("  {}", line)
-          }
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
-      content.push_str(&format!("\n{}", indented));
-    }
+    && !details_text.is_empty()
+  {
+    // Indent each line of details by 2 spaces so it aligns under the summary
+    let indented: String = details_text
+      .lines()
+      .map(|line| {
+        if line.trim().is_empty() {
+          "".to_string()
+        } else {
+          format!("  {}", line)
+        }
+      })
+      .collect::<Vec<_>>()
+      .join("\n");
+    content.push_str(&format!("\n{}", indented));
+  }
 
   fs::write(&path, content).map_err(OxrlsError::Io)?;
   Ok(path)
