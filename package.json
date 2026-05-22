@@ -1,5 +1,5 @@
 {
-  "name": "oxrls",
+  "name": "@bdbchgg/oxrls",
   "version": "1.0.0-alpha.1",
   "ava": {
     "environmentVariables": {

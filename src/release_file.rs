@@ -1,6 +1,7 @@
 use crate::error::{OxrlsError, Result};
 use indexmap::IndexMap;
 use rand::seq::SliceRandom;
+use rand::Rng;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use std::fs;
@@ -255,8 +256,12 @@ pub fn generate_release_filename(release_dir: &Path) -> PathBuf {
   let mut rng = rand::thread_rng();
   let adj = adjectives.choose(&mut rng).unwrap_or(&"quiet");
   let noun = nouns.choose(&mut rng).unwrap_or(&"fox");
+  let hash: String = (0..4).map(|_| {
+    let idx = rng.gen_range(0..16);
+    format!("{:x}", idx)
+  }).collect();
 
-  let filename = format!("{}-{}.md", adj, noun);
+  let filename = format!("{}-{}-{}.md", hash, adj, noun);
   release_dir.join(filename)
 }
 

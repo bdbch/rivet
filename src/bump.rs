@@ -499,6 +499,24 @@ pub fn apply_release_plan(
       "  {} {} -> {}",
       bump.package_name, bump.old_version, bump.new_version
     );
+
+    // Optionally sync version to Cargo.toml
+    if config.sync_cargo_toml {
+      let cargo_path = pkg.dir.join("Cargo.toml");
+      if cargo_path.exists() {
+        let cargo_content = std::fs::read_to_string(&cargo_path)
+          .map_err(|e| OxrlsError::Bump(format!("Failed to read Cargo.toml: {}", e)))?;
+        // Replace version = "..." in the package section (only the first occurrence)
+        let new_cargo = cargo_content.replacen(
+          &format!("version = \"{}\"", bump.old_version),
+          &format!("version = \"{}\"", bump.new_version),
+          1,
+        );
+        std::fs::write(&cargo_path, new_cargo)
+          .map_err(|e| OxrlsError::Bump(format!("Failed to write Cargo.toml: {}", e)))?;
+        println!("    Cargo.toml version synced");
+      }
+    }
   }
 
   // Phase 2: Update internal dependency ranges

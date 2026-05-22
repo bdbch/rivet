@@ -75,6 +75,11 @@ pub struct OxrlsConfig {
   #[serde(default)]
   pub access: Access,
 
+  /// When enabled, also bump the version in Cargo.toml files
+  /// that are found alongside package.json.
+  #[serde(default)]
+  pub sync_cargo_toml: bool,
+
   /// Groups of packages that always share the same version.
   /// When any package in a fixed group is bumped, all packages
   /// in that group are bumped to the same new version.
@@ -147,6 +152,7 @@ impl Default for OxrlsConfig {
       update_internal_dependencies: default_update_internal_deps(),
       base_branch: default_base_branch(),
       access: Access::Public,
+      sync_cargo_toml: false,
       fixed: vec![],
       linked: vec![],
       pre_mode: vec![],
