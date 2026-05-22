@@ -33,7 +33,22 @@ pub fn generate_changelog_section(entry: &ChangelogEntry) -> String {
         lines.push(format!("### {}", heading));
         lines.push(String::new());
         for change in changes {
-          lines.push(format!("- {}", change));
+          // Indent continuation lines by 2 spaces so they stay in the list item
+          let indented: String = change
+            .lines()
+            .enumerate()
+            .map(|(i, line)| {
+              if i == 0 {
+                format!("- {}", line)
+              } else if line.trim().is_empty() {
+                String::new()
+              } else {
+                format!("  {}", line)
+              }
+            })
+            .collect::<Vec<_>>()
+            .join("\n");
+          lines.push(indented);
         }
         lines.push(String::new());
       }
@@ -112,7 +127,21 @@ pub fn generate_global_changelog_section(
 
   for (pkg_name, version, bump_type, summaries) in packages {
     for summary in summaries {
-      let entry = format!("- **{}** (v{}): {}", pkg_name, version, summary);
+      // Indent continuation lines by 2 spaces
+      let entry: String = summary
+        .lines()
+        .enumerate()
+        .map(|(i, line)| {
+          if i == 0 {
+            format!("- **{}** (v{}): {}", pkg_name, version, line)
+          } else if line.trim().is_empty() {
+            String::new()
+          } else {
+            format!("  {}", line)
+          }
+        })
+        .collect::<Vec<_>>()
+        .join("\n");
       match bump_type {
         BumpType::Major => major_entries.push(entry),
         BumpType::Minor => minor_entries.push(entry),
