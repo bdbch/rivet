@@ -250,7 +250,7 @@ fn cmd_status() -> Result<()> {
   }
 
   // Show calculated bumps
-  match build_release_plan(&workspace, &config, &release_dir, false) {
+  match build_release_plan(&workspace, &config, &release_dir, true) {
     Ok(plan) => {
       println!("Calculated bumps:\n");
       for (_name, bump) in &plan.bumps {
