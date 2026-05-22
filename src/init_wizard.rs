@@ -86,13 +86,16 @@ pub fn run_init_wizard(
   )
   .prompt()
   .map_err(|e| OxrlsError::Other(format!("Input failed: {}", e)))?;
-  config.access = if access == "public" {
-    crate::config::Access::Public
-  } else {
-    crate::config::Access::Restricted
-  };
+  // 6. Sync Cargo.toml
+  let sync_cargo = Confirm::new(
+    "Sync version with Cargo.toml files alongside package.json? (useful for Rust/NAPI projects)",
+  )
+  .with_default(false)
+  .prompt()
+  .map_err(|e| OxrlsError::Other(format!("Input failed: {}", e)))?;
+  config.sync_cargo_toml = sync_cargo;
 
-  // 6. Linked packages (only if monorepo with 2+ packages)
+  // 7. Linked packages (only if monorepo with 2+ packages)
   if is_monorepo && workspace.packages.len() > 1 {
     loop {
       let want_linked = Confirm::new(
@@ -124,7 +127,7 @@ pub fn run_init_wizard(
     }
   }
 
-  // 7. Fixed packages (only if monorepo with 2+ packages)
+  // 8. Fixed packages (only if monorepo with 2+ packages)
   if is_monorepo && workspace.packages.len() > 1 {
     loop {
       let want_fixed = Confirm::new(
