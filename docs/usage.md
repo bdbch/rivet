@@ -118,7 +118,7 @@ Reads `.oxrls/releaseplan.txt` (a plain text list of package names, one per line
 - **Version check**: verifies `package.json` version matches the expected version
 - **Exists check**: runs `npm view <pkg>@<version> version` first — skips if already published
 - **Dist-tag**: `--tag` override → pre-release tag from version → `"latest"`
-- **Access**: reads `publishConfig.access` from `package.json` → falls back to `oxrls.json` config
+- **Access**: reads `publishConfig.access` from `package.json` → falls back to `.oxrls/config.json` config
 - **Registry**: reads `publishConfig.registry` from `package.json` if set
 - After success, the manifest file is removed
 

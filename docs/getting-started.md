@@ -24,7 +24,7 @@ cargo install --path .
 oxrls init
 ```
 
-Creates `oxrls.json` with defaults and a `.oxrls/` directory.
+Creates `.oxrls/config.json` with defaults and a `.oxrls/` directory.
 
 ### 2. Create a release file
 

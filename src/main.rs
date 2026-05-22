@@ -83,7 +83,7 @@ fn cmd_init(
   });
   let is_monorepo = workspace.packages.len() > 1;
 
-  let config_path = cwd.join("oxrls.json");
+  let config_path = cwd.join(".oxrls").join("config.json");
 
   let mut config = OxrlsConfig::default();
 

@@ -1,6 +1,6 @@
 # Configuration
 
-oxrls looks for `oxrls.json` or `.oxrls.json` in the project root or any parent directory.
+oxrls looks for `.oxrls/config.json` or `..oxrls/config.json` in the project root or any parent directory.
 
 ## Default config
 

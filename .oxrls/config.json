@@ -1,16 +1,16 @@
 {
   "schema": "https://oxrelease.dev/schema.json",
-  "syncCargoToml": true,
-  "release_dir": ".oxrls",
+  "releaseDir": ".oxrls",
   "changelog": true,
-  "generate_packages_changelog": false,
-  "generate_global_changelog": true,
-  "update_internal_dependencies": "patch",
-  "base_branch": "main",
+  "generatePackagesChangelog": false,
+  "generateGlobalChangelog": true,
+  "updateInternalDependencies": "patch",
+  "baseBranch": "main",
   "access": "public",
+  "syncCargoToml": true,
   "fixed": [],
   "linked": [],
-  "pre_mode": [
+  "preMode": [
     {
       "tag": "alpha",
       "packages": [

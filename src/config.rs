@@ -46,6 +46,7 @@ impl std::fmt::Display for Access {
 
 /// Schema for oxrls.json config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
+#[serde(rename_all = "camelCase")]
 pub struct OxrlsConfig {
   #[serde(skip_serializing_if = "Option::is_none")]
   pub schema: Option<String>,
@@ -191,7 +192,7 @@ impl OxrlsConfig {
   }
 }
 
-const CONFIG_FILE_NAMES: &[&str] = &["oxrls.json", ".oxrls.json"];
+const CONFIG_FILE_NAMES: &[&str] = &[".oxrls/config.json", "oxrls.json", ".oxrls.json"];
 
 impl OxrlsConfig {
   /// Find and load config from the given directory or one of its parents.
