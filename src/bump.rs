@@ -608,11 +608,25 @@ pub fn apply_release_plan(
   let manifest = ReleaseManifest::from_bumps(&plan.bumps);
   manifest.save(release_dir)?;
 
-  // Phase 4: Consume release files (skip release files for packages still in pre-release mode)
+  // Phase 4: Consume release files
+  // Collect all release files that touch a pre-release package — those are kept
+  let mut pre_release_files: HashSet<&PathBuf> = HashSet::new();
+  for (_name, bump) in &plan.bumps {
+    if !bump.new_version.pre.as_str().is_empty() {
+      for rf_path in &bump.release_files {
+        pre_release_files.insert(rf_path);
+      }
+    }
+  }
+
   if archive {
     let archive_dir = release_dir.join("archive");
     for (_name, bump) in &plan.bumps {
       for rf_path in &bump.release_files {
+        if pre_release_files.contains(rf_path) {
+          println!("  {} (kept — pre-release)", rf_path.display());
+          continue;
+        }
         crate::release_file::archive_release_file(rf_path, &archive_dir)?;
         println!("  {} (archived)", rf_path.display());
       }
@@ -620,11 +634,11 @@ pub fn apply_release_plan(
   } else {
     let mut consumed: HashSet<PathBuf> = HashSet::new();
     for (_name, bump) in &plan.bumps {
-      // Keep release files for pre-release packages — they're needed when going stable
-      let is_pre = !bump.new_version.pre.as_str().is_empty();
       for rf_path in &bump.release_files {
-        if is_pre {
-          println!("  {} (kept — pre-release)", rf_path.display());
+        if pre_release_files.contains(rf_path) {
+          if consumed.insert(rf_path.clone()) {
+            println!("  {} (kept — pre-release)", rf_path.display());
+          }
           continue;
         }
         if consumed.insert(rf_path.clone()) {
