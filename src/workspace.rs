@@ -24,7 +24,8 @@ pub struct Workspace {
   pub packages: IndexMap<String, WorkspacePackage>,
 }
 
-/// Detect the workspace root by looking for a package.json with workspaces field.
+/// Detect the workspace root by looking for a package.json with workspaces field,
+/// a pnpm-workspace.yaml, or — failing those — the nearest ancestor with a package.json.
 pub fn find_workspace_root(start_dir: &Path) -> Result<PathBuf> {
   let cwd = if start_dir.is_relative() {
     std::env::current_dir()
@@ -43,6 +44,9 @@ pub fn find_workspace_root(start_dir: &Path) -> Result<PathBuf> {
           if pkg.get("workspaces").is_some() {
             return Ok(dir.to_path_buf());
           }
+          // No workspaces field — a single-package repo.
+          // We don't return immediately because there might be a workspace
+          // marker in a parent directory.
         }
       }
     }
@@ -59,8 +63,22 @@ pub fn find_workspace_root(start_dir: &Path) -> Result<PathBuf> {
     current = dir.parent();
   }
 
-  // Fallback: use the current directory itself
-  Ok(cwd)
+  // Fallback: walk up again and return the nearest ancestor with a package.json
+  let mut current = Some(cwd.as_path());
+  let mut last_with_package_json: Option<PathBuf> = None;
+  while let Some(dir) = current {
+    let pkg_path = dir.join("package.json");
+    if pkg_path.exists() {
+      last_with_package_json = Some(dir.to_path_buf());
+    }
+    current = dir.parent();
+  }
+
+  last_with_package_json.ok_or_else(|| {
+    OxrlsError::Workspace(
+      "No package.json found in any parent directory. Are you in a Node.js project?".to_string(),
+    )
+  })
 }
 
 /// Load the complete workspace.
@@ -75,36 +93,47 @@ pub fn load_workspace(root: &Path) -> Result<Workspace> {
 
   let mut packages: IndexMap<String, WorkspacePackage> = IndexMap::new();
 
-  for pattern in &patterns {
-    let full_pattern = root.join(pattern).to_string_lossy().to_string();
-    // Determine the package.json glob
-    let pkg_json_pattern = if full_pattern.ends_with('/') || full_pattern.ends_with("\\") {
-      format!("{}package.json", full_pattern)
-    } else if full_pattern.ends_with("package.json") {
-      full_pattern.clone()
-    } else {
-      // It's a directory glob, add package.json
-      let trimmed = full_pattern.trim_end_matches('/');
-      format!("{}/package.json", trimmed)
-    };
+  if patterns.is_empty() {
+    // No workspace config found — treat the root as a single package
+    if let Some(ref name) = root_package_json.name {
+      let wp = WorkspacePackage {
+        dir: root.to_path_buf(),
+        package_json: root_package_json.clone(),
+      };
+      packages.insert(name.clone(), wp);
+    }
+  } else {
+    for pattern in &patterns {
+      let full_pattern = root.join(pattern).to_string_lossy().to_string();
+      // Determine the package.json glob
+      let pkg_json_pattern = if full_pattern.ends_with('/') || full_pattern.ends_with("\\") {
+        format!("{}package.json", full_pattern)
+      } else if full_pattern.ends_with("package.json") {
+        full_pattern.clone()
+      } else {
+        // It's a directory glob, add package.json
+        let trimmed = full_pattern.trim_end_matches('/');
+        format!("{}/package.json", trimmed)
+      };
 
-    // Use glob to find all matching package.json files
-    if let Ok(entries) = glob(&pkg_json_pattern) {
-      for entry in entries.flatten() {
-        // Skip root package.json
-        if entry.parent() == Some(root) {
-          continue;
-        }
-        if let Ok(content) = std::fs::read_to_string(&entry) {
-          if let Ok(pkg) = serde_json::from_str::<PackageJson>(&content) {
-            let name = pkg.name.clone();
-            if let Some(ref name) = name {
-              let dir = entry.parent().unwrap_or(&entry).to_path_buf();
-              let wp = WorkspacePackage {
-                dir,
-                package_json: pkg,
-              };
-              packages.entry(name.clone()).or_insert(wp);
+      // Use glob to find all matching package.json files
+      if let Ok(entries) = glob(&pkg_json_pattern) {
+        for entry in entries.flatten() {
+          // Skip root package.json
+          if entry.parent() == Some(root) {
+            continue;
+          }
+          if let Ok(content) = std::fs::read_to_string(&entry) {
+            if let Ok(pkg) = serde_json::from_str::<PackageJson>(&content) {
+              let name = pkg.name.clone();
+              if let Some(ref name) = name {
+                let dir = entry.parent().unwrap_or(&entry).to_path_buf();
+                let wp = WorkspacePackage {
+                  dir,
+                  package_json: pkg,
+                };
+                packages.entry(name.clone()).or_insert(wp);
+              }
             }
           }
         }
@@ -241,5 +270,63 @@ mod tests {
         .as_deref(),
       Some("1.2.3")
     );
+  }
+
+  #[test]
+  fn test_load_single_package_no_workspace_config() {
+    let tmp = TempDir::new().unwrap();
+
+    // Root package.json — no workspaces field
+    let root_pkg = serde_json::json!({
+        "name": "my-single-pkg",
+        "version": "0.1.0",
+        "dependencies": {
+            "lodash": "^4.17.0"
+        }
+    });
+    std::fs::write(
+      tmp.path().join("package.json"),
+      serde_json::to_string_pretty(&root_pkg).unwrap(),
+    )
+    .unwrap();
+
+    let workspace = load_workspace(tmp.path()).unwrap();
+
+    // Should treat root as the only package
+    assert_eq!(workspace.packages.len(), 1);
+    assert!(workspace.packages.contains_key("my-single-pkg"));
+    assert_eq!(
+      workspace.packages["my-single-pkg"]
+        .package_json
+        .version
+        .as_deref(),
+      Some("0.1.0")
+    );
+    assert_eq!(
+      workspace.packages["my-single-pkg"].dir,
+      tmp.path()
+    );
+  }
+
+  #[test]
+  fn test_find_root_single_package_no_workspace_config() {
+    let tmp = TempDir::new().unwrap();
+
+    let root_pkg = serde_json::json!({
+        "name": "my-app",
+        "version": "1.0.0"
+    });
+    std::fs::write(
+      tmp.path().join("package.json"),
+      serde_json::to_string_pretty(&root_pkg).unwrap(),
+    )
+    .unwrap();
+
+    // Finding root from a subdirectory should walk up to the root
+    let subdir = tmp.path().join("src").join("lib");
+    std::fs::create_dir_all(&subdir).unwrap();
+
+    let root = find_workspace_root(&subdir).unwrap();
+    assert_eq!(root, tmp.path());
   }
 }

@@ -1,10 +1,14 @@
-use crate::changelog::{generate_changelog_section, update_changelog, ChangelogEntry};
+use crate::changelog::{
+  generate_changelog_section, generate_global_changelog_section, update_changelog,
+  update_global_changelog, ChangelogEntry,
+};
 use crate::config::{InternalDepUpdate, OxrlsConfig};
 use crate::error::{OxrlsError, Result};
 use crate::package_json::PackageJson;
 use crate::release_file::{consume_release_file, parse_release_file, BumpType, ReleaseFile};
 use crate::version_bump::bump_version;
-use crate::workspace::Workspace;
+use crate::workspace::{Workspace, WorkspacePackage};
+use glob::Pattern;
 use indexmap::IndexMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
@@ -115,6 +119,12 @@ pub fn build_release_plan(
     );
   }
 
+  // Apply fixed group constraints — all packages in a fixed group share the same version
+  apply_fixed_groups(&mut bumps, workspace, config)?;
+
+  // Apply linked group constraints — all packages in a linked group share the same bump type
+  apply_linked_groups(&mut bumps, workspace, config)?;
+
   // Compute internal dependency updates
   let internal_updates = compute_internal_dep_updates(workspace, &bumps, config)?;
 
@@ -122,6 +132,212 @@ pub fn build_release_plan(
     bumps,
     internal_dep_updates: internal_updates,
   })
+}
+
+/// Resolve a group of package name patterns (with optional `!` negation)
+/// against the workspace package names.
+///
+/// Supports glob patterns via `glob::Pattern`:
+/// - `"@scope/*"` matches all packages under `@scope/`
+/// - `"!@scope/special"` excludes `@scope/special` from the resolved set
+///
+/// The resolution order is: all inclusions are applied first, then exclusions.
+fn resolve_group_patterns(
+  patterns: &[String],
+  packages: &IndexMap<String, WorkspacePackage>,
+) -> Result<Vec<String>> {
+  if patterns.is_empty() {
+    return Ok(vec![]);
+  }
+
+  // If no patterns use glob or negation, skip resolution and return as-is
+  let needs_resolution = patterns
+    .iter()
+    .any(|p| p.contains('*') || p.contains('?') || p.contains('[') || p.starts_with('!'));
+
+  if !needs_resolution {
+    return Ok(patterns.to_vec());
+  }
+
+  let mut result: Vec<String> = Vec::new();
+
+  // Phase 1: process inclusion patterns (no `!` prefix)
+  let inclusion_patterns: Vec<&str> = patterns
+    .iter()
+    .filter(|p| !p.starts_with('!'))
+    .map(|p| p.as_str())
+    .collect();
+
+  if inclusion_patterns.is_empty() {
+    // No explicit inclusions means all packages
+    for name in packages.keys() {
+      result.push(name.clone());
+    }
+  } else {
+    for pattern_str in &inclusion_patterns {
+      let pat = Pattern::new(pattern_str).map_err(|e| {
+        OxrlsError::Config(format!("Invalid glob pattern \"{}\": {}", pattern_str, e))
+      })?;
+      for name in packages.keys() {
+        if pat.matches(name) {
+          result.push(name.clone());
+        }
+      }
+    }
+  }
+
+  // Phase 2: process exclusion patterns (prefixed with `!`)
+  let exclusion_patterns: Vec<&str> = patterns
+    .iter()
+    .filter(|p| p.starts_with('!'))
+    .map(|p| &p[1..])
+    .collect();
+
+  if !exclusion_patterns.is_empty() {
+    result.retain(|name| {
+      !exclusion_patterns.iter().any(|pat_str| {
+        Pattern::new(pat_str)
+          .map(|pat| pat.matches(name))
+          .unwrap_or(false)
+      })
+    });
+  }
+
+  result.sort();
+  result.dedup();
+  Ok(result)
+}
+
+/// Apply fixed group constraints: all packages in a fixed group share the same version.
+/// If any member of a fixed group is bumped, every member gets bumped to the same new version
+/// (computed from the highest bump type × the highest old version in the group).
+///
+/// Supports glob patterns and `!` negation in group definitions:
+/// ```json
+/// { "fixed": [["@scope/*", "!@scope/special"]] }
+/// ```
+fn apply_fixed_groups(
+  bumps: &mut IndexMap<String, PlannedBump>,
+  workspace: &Workspace,
+  config: &OxrlsConfig,
+) -> Result<()> {
+  for group_patterns in &config.fixed {
+    if group_patterns.is_empty() {
+      continue;
+    }
+
+    let group = resolve_group_patterns(group_patterns, &workspace.packages)?;
+
+    // Collect current state of all group members
+    let mut group_bumps: Vec<(String, semver::Version, BumpType)> = Vec::new();
+    let mut any_bumped = false;
+
+    for pkg_name in &group {
+      if let Some(bump) = bumps.get(pkg_name) {
+        any_bumped = true;
+        group_bumps.push((
+          pkg_name.clone(),
+          bump.old_version.clone(),
+          bump.bump_type,
+        ));
+      } else if let Some(pkg) = workspace.packages.get(pkg_name) {
+        if let Ok(ver) = pkg.package_json.semver_version() {
+          group_bumps.push((pkg_name.clone(), ver, BumpType::Patch));
+        }
+      }
+    }
+
+    // Only apply fixed constraint if at least one member was bumped
+    if !any_bumped {
+      continue;
+    }
+
+    // Find the highest old version and max bump type in the group
+    let mut max_bump = BumpType::Patch;
+    let mut highest_old_version = semver::Version::new(0, 0, 0);
+
+    for (_, old_ver, bump_type) in &group_bumps {
+      if old_ver > &highest_old_version {
+        highest_old_version = old_ver.clone();
+      }
+      if bump_type.priority() > max_bump.priority() {
+        max_bump = *bump_type;
+      }
+    }
+
+    // Compute the shared new version
+    let shared_new_version = bump_version(&highest_old_version, max_bump);
+
+    // Apply to all group members
+    for (pkg_name, old_ver, bump_type) in &group_bumps {
+      bumps.insert(
+        pkg_name.clone(),
+        PlannedBump {
+          package_name: pkg_name.clone(),
+          old_version: old_ver.clone(),
+          new_version: shared_new_version.clone(),
+          bump_type: *bump_type,
+          summaries: bumps
+            .get(pkg_name)
+            .map(|b| b.summaries.clone())
+            .unwrap_or_default(),
+          release_files: bumps
+            .get(pkg_name)
+            .map(|b| b.release_files.clone())
+            .unwrap_or_default(),
+        },
+      );
+    }
+  }
+
+  Ok(())
+}
+
+/// Apply linked group constraints: all packages in a linked group share the same bump type.
+/// If any member of a linked group receives a bump, every other member in the group
+/// that is also being bumped gets the highest bump type found in the group.
+///
+/// Supports glob patterns and `!` negation in group definitions:
+/// ```json
+/// { "linked": [["@scope/*", "!@scope/special"]] }
+/// ```
+fn apply_linked_groups(
+  bumps: &mut IndexMap<String, PlannedBump>,
+  workspace: &Workspace,
+  config: &OxrlsConfig,
+) -> Result<()> {
+  for group_patterns in &config.linked {
+    if group_patterns.is_empty() {
+      continue;
+    }
+
+    let group = resolve_group_patterns(group_patterns, &workspace.packages)?;
+
+    // Find the max bump type among group members that are in the plan
+    let mut max_bump: Option<BumpType> = None;
+    for pkg_name in &group {
+      if let Some(bump) = bumps.get(pkg_name) {
+        max_bump = Some(BumpType::max(max_bump, bump.bump_type));
+      }
+    }
+
+    let max_bump = match max_bump {
+      Some(b) => b,
+      None => continue,
+    };
+
+    // Apply the max bump type to all group members that are in the plan
+    for pkg_name in &group {
+      if let Some(bump) = bumps.get_mut(pkg_name) {
+        if bump.bump_type != max_bump {
+          bump.bump_type = max_bump;
+          bump.new_version = bump_version(&bump.old_version, max_bump);
+        }
+      }
+    }
+  }
+
+  Ok(())
 }
 
 /// Compute which internal dependency ranges need updating.
@@ -258,7 +474,10 @@ pub fn apply_release_plan(
   }
 
   // Phase 3: Update changelogs
-  if config.changelog {
+  let is_solo_repo = workspace.packages.len() <= 1;
+  let changelog_mode = config.changelog_mode(is_solo_repo);
+
+  if changelog_mode.per_package {
     for (_name, bump) in &plan.bumps {
       let pkg = workspace
         .packages
@@ -268,13 +487,8 @@ pub fn apply_release_plan(
       let changelog_path = pkg.dir.join("CHANGELOG.md");
 
       // Group summaries by type for this package
-      // Since all summaries come from release files that reference this package,
-      // and we know the merged bump type, we associate all summaries with that type
-      // Actually, we need to be smarter: a release file might reference multiple packages
-      // with different bump types. We group by the bump type from each release file entry.
       let mut type_summaries: IndexMap<BumpType, Vec<String>> = IndexMap::new();
       for rf_path in &bump.release_files {
-        // Re-parse to get the per-package bump type
         if let Ok(rf) = parse_release_file(rf_path) {
           if let Some(bt) = rf.releases.get(&bump.package_name) {
             type_summaries
@@ -285,7 +499,6 @@ pub fn apply_release_plan(
         }
       }
 
-      // If no type-specific summaries found, just use all summaries under the merged type
       if type_summaries.is_empty() {
         type_summaries.insert(bump.bump_type, bump.summaries.clone());
       }
@@ -298,6 +511,28 @@ pub fn apply_release_plan(
 
       let section = generate_changelog_section(&entry);
       update_changelog(&changelog_path, &bump.package_name, &section)?;
+    }
+  }
+
+  if changelog_mode.global {
+    // Collect all bumped packages with their summaries for the global changelog
+    let global_packages: Vec<(String, semver::Version, BumpType, Vec<String>)> = plan
+      .bumps
+      .values()
+      .map(|bump| {
+        (
+          bump.package_name.clone(),
+          bump.new_version.clone(),
+          bump.bump_type,
+          bump.summaries.clone(),
+        )
+      })
+      .collect();
+
+    let global_section = generate_global_changelog_section(&global_packages);
+    if !global_section.is_empty() {
+      let global_changelog_path = workspace.root.join("CHANGELOG.md");
+      update_global_changelog(&global_changelog_path, &global_section)?;
     }
   }
 
@@ -451,6 +686,101 @@ mod tests {
   }
 
   #[test]
+  fn test_resolve_patterns_exact() {
+    let tmp = TempDir::new().unwrap();
+    let ws = create_test_workspace(&tmp);
+    let patterns = vec!["@scope/core".to_string()];
+    let resolved = resolve_group_patterns(&patterns, &ws.packages).unwrap();
+    assert_eq!(resolved, vec!["@scope/core"]);
+  }
+
+  #[test]
+  fn test_resolve_patterns_glob() {
+    let tmp = TempDir::new().unwrap();
+    let ws = create_test_workspace(&tmp);
+    let patterns = vec!["@scope/*".to_string()];
+    let resolved = resolve_group_patterns(&patterns, &ws.packages).unwrap();
+    assert_eq!(resolved.len(), 2);
+    assert!(resolved.contains(&"@scope/core".to_string()));
+    assert!(resolved.contains(&"@scope/react".to_string()));
+  }
+
+  #[test]
+  fn test_resolve_patterns_glob_with_negation() {
+    let tmp = TempDir::new().unwrap();
+    let ws = create_test_workspace(&tmp);
+    let patterns = vec![
+      "@scope/*".to_string(),
+      "!@scope/core".to_string(),
+    ];
+    let resolved = resolve_group_patterns(&patterns, &ws.packages).unwrap();
+    assert_eq!(resolved, vec!["@scope/react"]);
+  }
+
+  #[test]
+  fn test_fixed_group_with_glob_patterns() {
+    let tmp = TempDir::new().unwrap();
+    let _ = create_test_workspace(&tmp);
+    let workspace = load_workspace(tmp.path()).unwrap();
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    let content = r#"---
+"@scope/core": patch
+---
+
+Fix bug."#;
+    std::fs::write(release_dir.join("test.md"), content).unwrap();
+
+    // Fix all @scope/* packages — both should get the same version
+    let config = OxrlsConfig {
+      fixed: vec![vec!["@scope/*".to_string()]],
+      ..Default::default()
+    };
+
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    let core = plan.bumps.get("@scope/core").unwrap();
+    let react = plan.bumps.get("@scope/react").unwrap();
+
+    assert_eq!(core.new_version, react.new_version);
+    assert_eq!(core.new_version, semver::Version::new(1, 2, 4));
+    assert_eq!(react.new_version, semver::Version::new(1, 2, 4));
+  }
+
+  #[test]
+  fn test_fixed_group_with_glob_and_negation() {
+    let tmp = TempDir::new().unwrap();
+    let _ = create_test_workspace(&tmp);
+    let workspace = load_workspace(tmp.path()).unwrap();
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    let content = r#"---
+"@scope/core": patch
+---
+
+Fix bug."#;
+    std::fs::write(release_dir.join("test.md"), content).unwrap();
+
+    // Fix all @scope/* EXCEPT react — only core should be affected
+    let config = OxrlsConfig {
+      fixed: vec![vec![
+        "@scope/*".to_string(),
+        "!@scope/react".to_string(),
+      ]],
+      ..Default::default()
+    };
+
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    assert!(plan.bumps.contains_key("@scope/core"));
+    assert!(!plan.bumps.contains_key("@scope/react"));
+  }
+
+  #[test]
   fn test_build_release_plan() {
     let tmp = TempDir::new().unwrap();
     let workspace = create_test_workspace(&tmp);
@@ -552,6 +882,139 @@ Fix bug."#;
     // Check version unchanged
     let core_pkg = PackageJson::read(&tmp.path().join("packages/core/package.json")).unwrap();
     assert_eq!(core_pkg.version.as_deref(), Some("1.2.3"));
+  }
+
+  #[test]
+  fn test_fixed_group_constraint() {
+    let tmp = TempDir::new().unwrap();
+    let _workspace = create_test_workspace(&tmp);
+
+    // Add a third package in a fixed group with core
+    let utils_pkg = serde_json::json!({
+        "name": "@scope/utils",
+        "version": "0.5.0"
+    });
+    std::fs::create_dir_all(tmp.path().join("packages/utils")).unwrap();
+    std::fs::write(
+      tmp.path().join("packages/utils/package.json"),
+      serde_json::to_string_pretty(&utils_pkg).unwrap(),
+    )
+    .unwrap();
+
+    // Reload workspace to pick up the new package
+    let workspace = load_workspace(tmp.path()).unwrap();
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    let content = r#"---
+"@scope/core": patch
+---
+
+Fix bug."#;
+    std::fs::write(release_dir.join("test.md"), content).unwrap();
+
+    let config = OxrlsConfig {
+      fixed: vec![vec!["@scope/core".to_string(), "@scope/utils".to_string()]],
+      ..Default::default()
+    };
+
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    // Both packages should be bumped to the same version (based on highest old version)
+    let core = plan.bumps.get("@scope/core").unwrap();
+    let utils = plan.bumps.get("@scope/utils").unwrap();
+
+    assert_eq!(core.new_version, utils.new_version);
+    // Highest old version is @scope/core 1.2.3, patched → 1.2.4
+    assert_eq!(core.new_version, semver::Version::new(1, 2, 4));
+    assert_eq!(utils.new_version, semver::Version::new(1, 2, 4));
+  }
+
+  #[test]
+  fn test_fixed_group_uses_highest_old_version() {
+    let tmp = TempDir::new().unwrap();
+    let _workspace = create_test_workspace(&tmp);
+
+    // Add a package with a higher version
+    let utils_pkg = serde_json::json!({
+        "name": "@scope/utils",
+        "version": "2.0.0"
+    });
+    std::fs::create_dir_all(tmp.path().join("packages/utils")).unwrap();
+    std::fs::write(
+      tmp.path().join("packages/utils/package.json"),
+      serde_json::to_string_pretty(&utils_pkg).unwrap(),
+    )
+    .unwrap();
+
+    // Reload workspace to pick up the new package
+    let workspace = load_workspace(tmp.path()).unwrap();
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    let content = r#"---
+"@scope/utils": major
+---
+
+Breaking change."#;
+    std::fs::write(release_dir.join("test.md"), content).unwrap();
+
+    let config = OxrlsConfig {
+      fixed: vec![vec!["@scope/core".to_string(), "@scope/utils".to_string()]],
+      ..Default::default()
+    };
+
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    let core = plan.bumps.get("@scope/core").unwrap();
+    let utils = plan.bumps.get("@scope/utils").unwrap();
+
+    // Both should be 3.0.0 (highest old version 2.0.0 + major bump = 3.0.0)
+    assert_eq!(core.new_version, semver::Version::new(3, 0, 0));
+    assert_eq!(utils.new_version, semver::Version::new(3, 0, 0));
+  }
+
+  #[test]
+  fn test_linked_group_shares_bump_type() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = create_test_workspace(&tmp);
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    // Core gets patch, react gets minor — linked group means both get the max (minor)
+    let content1 = r#"---
+"@scope/core": patch
+---
+
+Fix bug."#;
+    std::fs::write(release_dir.join("f1.md"), content1).unwrap();
+
+    let content2 = r#"---
+"@scope/react": minor
+---
+
+Add feature."#;
+    std::fs::write(release_dir.join("f2.md"), content2).unwrap();
+
+    let config = OxrlsConfig {
+      linked: vec![vec!["@scope/core".to_string(), "@scope/react".to_string()]],
+      ..Default::default()
+    };
+
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    let core = plan.bumps.get("@scope/core").unwrap();
+    let react = plan.bumps.get("@scope/react").unwrap();
+
+    // Both should be minor bumps
+    assert_eq!(core.bump_type, BumpType::Minor);
+    assert_eq!(react.bump_type, BumpType::Minor);
+    // Core: 1.2.3 → 1.3.0, React: 1.0.0 → 1.1.0
+    assert_eq!(core.new_version, semver::Version::new(1, 3, 0));
+    assert_eq!(react.new_version, semver::Version::new(1, 1, 0));
   }
 
   #[test]

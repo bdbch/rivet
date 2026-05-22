@@ -1,4 +1,4 @@
-# vp-release / oxrls
+# oxrls
 
 > A Rust-powered native addon (napi-rs) + a Changesets-like release CLI for JS/TS monorepos.
 

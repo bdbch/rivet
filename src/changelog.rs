@@ -90,6 +90,93 @@ pub fn group_changes_by_type(
   changes
 }
 
+/// Generate a global changelog section that aggregates changes across all bumped packages.
+///
+/// Each entry is prefixed with the package name. Changes are grouped by bump type.
+/// Uses the current date as the version heading.
+pub fn generate_global_changelog_section(
+  packages: &[(String, semver::Version, BumpType, Vec<String>)],
+) -> String {
+  use chrono::Utc;
+
+  let mut lines = Vec::new();
+
+  let date_str = Utc::now().format("%Y-%m-%d").to_string();
+  lines.push(format!("## {}", date_str));
+  lines.push(String::new());
+
+  // Group entries by bump type
+  let mut major_entries: Vec<String> = Vec::new();
+  let mut minor_entries: Vec<String> = Vec::new();
+  let mut patch_entries: Vec<String> = Vec::new();
+
+  for (pkg_name, version, bump_type, summaries) in packages {
+    for summary in summaries {
+      let entry = format!("- **{}** (v{}): {}", pkg_name, version, summary);
+      match bump_type {
+        BumpType::Major => major_entries.push(entry),
+        BumpType::Minor => minor_entries.push(entry),
+        BumpType::Patch => patch_entries.push(entry),
+      }
+    }
+  }
+
+  let sections: Vec<(&str, &Vec<String>)> = vec![
+    ("Major Changes", &major_entries),
+    ("Minor Changes", &minor_entries),
+    ("Patch Changes", &patch_entries),
+  ];
+
+  for (heading, entries) in sections {
+    if !entries.is_empty() {
+      lines.push(format!("### {}", heading));
+      lines.push(String::new());
+      for entry in entries {
+        lines.push(entry.clone());
+      }
+      lines.push(String::new());
+    }
+  }
+
+  // Remove trailing newline
+  while lines.last().map(|s| s.is_empty()).unwrap_or(false) {
+    lines.pop();
+  }
+
+  if lines.is_empty() {
+    return String::new();
+  }
+
+  lines.join("\n")
+}
+
+/// Update a global CHANGELOG.md in the project root.
+pub fn update_global_changelog(
+  changelog_path: &Path,
+  new_section: &str,
+) -> Result<()> {
+  if new_section.is_empty() {
+    return Ok(());
+  }
+
+  let content = if changelog_path.exists() {
+    let existing = std::fs::read_to_string(changelog_path)
+      .map_err(|e| OxrlsError::Changelog(format!("Failed to read changelog: {}", e)))?;
+    format!("{}\n\n{}", new_section, existing)
+  } else {
+    format!("# Changelog\n\n{}", new_section)
+  };
+
+  if let Some(parent) = changelog_path.parent() {
+    std::fs::create_dir_all(parent).map_err(OxrlsError::Io)?;
+  }
+
+  std::fs::write(changelog_path, &content)
+    .map_err(|e| OxrlsError::Changelog(format!("Failed to write changelog: {}", e)))?;
+
+  Ok(())
+}
+
 #[cfg(test)]
 mod tests {
   use super::*;

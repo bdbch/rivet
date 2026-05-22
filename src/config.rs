@@ -44,8 +44,18 @@ pub struct OxrlsConfig {
   #[serde(default = "default_release_dir")]
   pub release_dir: String,
 
+  /// Deprecated: use `generate_packages_changelog` instead.
+  /// If set explicitly, it maps to `generate_packages_changelog`.
   #[serde(default = "default_changelog")]
   pub changelog: bool,
+
+  /// Generate individual CHANGELOG.md files per workspace package.
+  #[serde(default = "default_generate_packages_changelog")]
+  pub generate_packages_changelog: bool,
+
+  /// Generate a single global CHANGELOG.md in the project root.
+  #[serde(default = "default_generate_global_changelog")]
+  pub generate_global_changelog: bool,
 
   #[serde(default = "default_update_internal_deps")]
   pub update_internal_dependencies: InternalDepUpdate,
@@ -55,6 +65,27 @@ pub struct OxrlsConfig {
 
   #[serde(default)]
   pub access: Access,
+
+  /// Groups of packages that always share the same version.
+  /// When any package in a fixed group is bumped, all packages
+  /// in that group are bumped to the same new version.
+  #[serde(default)]
+  pub fixed: Vec<Vec<String>>,
+
+  /// Groups of packages that share the same bump type.
+  /// When a package in a linked group receives a bump, all
+  /// packages in that group receive the same bump type.
+  #[serde(default)]
+  pub linked: Vec<Vec<String>>,
+}
+
+/// Information about which changelog mode(s) are active for a given run.
+#[derive(Debug, Clone, Copy, PartialEq)]
+pub struct ChangelogMode {
+  /// Generate per-package CHANGELOG.md files.
+  pub per_package: bool,
+  /// Generate a root-level CHANGELOG.md aggregating all changes.
+  pub global: bool,
 }
 
 fn default_release_dir() -> String {
@@ -63,6 +94,14 @@ fn default_release_dir() -> String {
 
 fn default_changelog() -> bool {
   true
+}
+
+fn default_generate_packages_changelog() -> bool {
+  true
+}
+
+fn default_generate_global_changelog() -> bool {
+  false
 }
 
 fn default_update_internal_deps() -> InternalDepUpdate {
@@ -79,9 +118,44 @@ impl Default for OxrlsConfig {
       schema: Some("https://oxrelease.dev/schema.json".to_string()),
       release_dir: default_release_dir(),
       changelog: default_changelog(),
+      generate_packages_changelog: default_generate_packages_changelog(),
+      generate_global_changelog: default_generate_global_changelog(),
       update_internal_dependencies: default_update_internal_deps(),
       base_branch: default_base_branch(),
       access: Access::Public,
+      fixed: vec![],
+      linked: vec![],
+    }
+  }
+}
+
+impl OxrlsConfig {
+  /// Determine the effective changelog mode for the current run.
+  ///
+  /// Rules:
+  /// - Legacy `changelog: false` disables all changelog generation.
+  /// - In a solo repo (single package), `per_package` falls back to `global`.
+  /// - If both are false, no changelog is generated.
+  pub fn changelog_mode(&self, is_solo_repo: bool) -> ChangelogMode {
+    // Legacy `changelog: false` disables changelogs entirely
+    if !self.changelog {
+      return ChangelogMode {
+        per_package: false,
+        global: false,
+      };
+    }
+
+    let per_package = self.generate_packages_changelog;
+    let global = self.generate_global_changelog;
+
+    if is_solo_repo && per_package && !global {
+      // Solo repo falls back to global
+      ChangelogMode {
+        per_package: false,
+        global: true,
+      }
+    } else {
+      ChangelogMode { per_package, global }
     }
   }
 }
@@ -174,5 +248,70 @@ mod tests {
 
     let (loaded, _) = OxrlsConfig::load(tmp.path()).unwrap();
     assert_eq!(loaded.release_dir, ".myrelease");
+  }
+
+  #[test]
+  fn test_changelog_mode_default_monorepo() {
+    let config = OxrlsConfig::default();
+    let mode = config.changelog_mode(false);
+    assert!(mode.per_package);
+    assert!(!mode.global);
+  }
+
+  #[test]
+  fn test_changelog_mode_solo_falls_back_to_global() {
+    let config = OxrlsConfig::default();
+    let mode = config.changelog_mode(true);
+    // Solo repo: per_package falls back to global
+    assert!(!mode.per_package);
+    assert!(mode.global);
+  }
+
+  #[test]
+  fn test_changelog_mode_explicit_both() {
+    let config = OxrlsConfig {
+      generate_packages_changelog: true,
+      generate_global_changelog: true,
+      ..Default::default()
+    };
+    let mode = config.changelog_mode(false);
+    assert!(mode.per_package);
+    assert!(mode.global);
+  }
+
+  #[test]
+  fn test_changelog_mode_legacy_false_disables_all() {
+    let config = OxrlsConfig {
+      changelog: false,
+      ..Default::default()
+    };
+    let mode = config.changelog_mode(false);
+    assert!(!mode.per_package);
+    assert!(!mode.global);
+  }
+
+  #[test]
+  fn test_changelog_mode_both_false() {
+    let config = OxrlsConfig {
+      generate_packages_changelog: false,
+      generate_global_changelog: false,
+      changelog: true,
+      ..Default::default()
+    };
+    let mode = config.changelog_mode(false);
+    assert!(!mode.per_package);
+    assert!(!mode.global);
+  }
+
+  #[test]
+  fn test_changelog_mode_solo_global_only() {
+    let config = OxrlsConfig {
+      generate_packages_changelog: false,
+      generate_global_changelog: true,
+      ..Default::default()
+    };
+    let mode = config.changelog_mode(true);
+    assert!(!mode.per_package);
+    assert!(mode.global);
   }
 }
