@@ -4,6 +4,12 @@
 
 ### Patch Changes
 
+- **@bdbchgg/oxrls** (v1.0.0-alpha.3): Improve CLI output formatting with aligned columns and unicode arrows
+
+## 2026-05-22
+
+### Patch Changes
+
 - **@bdbchgg/oxrls** (v1.0.0-alpha.2): Fix: oxrls status no longer increments pre-release counters
 - **@bdbchgg/oxrls** (v1.0.0-alpha.2): Move config to .oxrls/config.json, fix release_dir_abs for nested config
 - **@bdbchgg/oxrls** (v1.0.0-alpha.2): Fix: dry-run no longer increments pre-release counters
