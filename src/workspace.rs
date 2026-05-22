@@ -38,18 +38,15 @@ pub fn find_workspace_root(start_dir: &Path) -> Result<PathBuf> {
   let mut current = Some(cwd.as_path());
   while let Some(dir) = current {
     let pkg_path = dir.join("package.json");
-    if pkg_path.exists() {
-      if let Ok(content) = std::fs::read_to_string(&pkg_path) {
-        if let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content) {
-          if pkg.get("workspaces").is_some() {
+    if pkg_path.exists()
+      && let Ok(content) = std::fs::read_to_string(&pkg_path)
+        && let Ok(pkg) = serde_json::from_str::<serde_json::Value>(&content)
+          && pkg.get("workspaces").is_some() {
             return Ok(dir.to_path_buf());
           }
           // No workspaces field — a single-package repo.
           // We don't return immediately because there might be a workspace
           // marker in a parent directory.
-        }
-      }
-    }
     // Also check for pnpm-workspace.yaml
     let pnpm_yaml = dir.join("pnpm-workspace.yaml");
     if pnpm_yaml.exists() {
@@ -95,7 +92,8 @@ pub fn load_workspace(root: &Path) -> Result<Workspace> {
 
   if patterns.is_empty() {
     // No workspace config found — treat the root as a single package
-    if let Some(ref name) = root_package_json.name {
+    let root_name = root_package_json.name.clone();
+    if let Some(name) = root_name {
       let wp = WorkspacePackage {
         dir: root.to_path_buf(),
         package_json: root_package_json.clone(),
@@ -123,10 +121,10 @@ pub fn load_workspace(root: &Path) -> Result<Workspace> {
           if entry.parent() == Some(root) {
             continue;
           }
-          if let Ok(content) = std::fs::read_to_string(&entry) {
-            if let Ok(pkg) = serde_json::from_str::<PackageJson>(&content) {
+          if let Ok(content) = std::fs::read_to_string(&entry)
+            && let Ok(pkg) = serde_json::from_str::<PackageJson>(&content) {
               let name = pkg.name.clone();
-              if let Some(ref name) = name {
+              if let Some(name) = name {
                 let dir = entry.parent().unwrap_or(&entry).to_path_buf();
                 let wp = WorkspacePackage {
                   dir,
@@ -135,7 +133,6 @@ pub fn load_workspace(root: &Path) -> Result<Workspace> {
                 packages.entry(name.clone()).or_insert(wp);
               }
             }
-          }
         }
       }
     }
@@ -152,10 +149,10 @@ pub fn load_workspace(root: &Path) -> Result<Workspace> {
 fn get_workspace_globs(root: &Path) -> Result<Vec<String>> {
   // Check pnpm-workspace.yaml first
   let pnpm_yaml = root.join("pnpm-workspace.yaml");
-  if pnpm_yaml.exists() {
-    if let Ok(content) = std::fs::read_to_string(&pnpm_yaml) {
-      if let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&content) {
-        if let Some(packages) = yaml.get("packages").and_then(|v| v.as_sequence()) {
+  if pnpm_yaml.exists()
+    && let Ok(content) = std::fs::read_to_string(&pnpm_yaml)
+      && let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&content)
+        && let Some(packages) = yaml.get("packages").and_then(|v| v.as_sequence()) {
           let globs: Vec<String> = packages
             .iter()
             .filter_map(|v| v.as_str().map(|s| s.to_string()))
@@ -164,16 +161,13 @@ fn get_workspace_globs(root: &Path) -> Result<Vec<String>> {
             return Ok(globs);
           }
         }
-      }
-    }
-  }
 
   // Check package.json workspaces
   let root_pkg_path = root.join("package.json");
-  if root_pkg_path.exists() {
-    if let Ok(content) = std::fs::read_to_string(&root_pkg_path) {
-      if let Ok(json) = serde_json::from_str::<serde_json::Value>(&content) {
-        if let Some(workspaces) = json.get("workspaces") {
+  if root_pkg_path.exists()
+    && let Ok(content) = std::fs::read_to_string(&root_pkg_path)
+      && let Ok(json) = serde_json::from_str::<serde_json::Value>(&content)
+        && let Some(workspaces) = json.get("workspaces") {
           // Array format: ["packages/*", "apps/*"]
           if let Some(arr) = workspaces.as_array() {
             return Ok(
@@ -184,8 +178,8 @@ fn get_workspace_globs(root: &Path) -> Result<Vec<String>> {
             );
           }
           // Object format: { "packages": ["packages/*"], "nohoist": [...] }
-          if let Some(obj) = workspaces.as_object() {
-            if let Some(pkg_arr) = obj.get("packages").and_then(|v| v.as_array()) {
+          if let Some(obj) = workspaces.as_object()
+            && let Some(pkg_arr) = obj.get("packages").and_then(|v| v.as_array()) {
               return Ok(
                 pkg_arr
                   .iter()
@@ -193,11 +187,7 @@ fn get_workspace_globs(root: &Path) -> Result<Vec<String>> {
                   .collect(),
               );
             }
-          }
         }
-      }
-    }
-  }
 
   Ok(vec![])
 }

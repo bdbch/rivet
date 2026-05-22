@@ -251,11 +251,10 @@ fn apply_fixed_groups(
           bump.old_version.clone(),
           bump.bump_type,
         ));
-      } else if let Some(pkg) = workspace.packages.get(pkg_name) {
-        if let Ok(ver) = pkg.package_json.semver_version() {
+      } else if let Some(pkg) = workspace.packages.get(pkg_name)
+        && let Ok(ver) = pkg.package_json.semver_version() {
           group_bumps.push((pkg_name.clone(), ver, BumpType::Patch));
         }
-      }
     }
 
     // Only apply fixed constraint if at least one member was bumped
@@ -396,12 +395,11 @@ fn apply_linked_groups(
 
     // Apply the max bump type to all group members that are in the plan
     for pkg_name in &group {
-      if let Some(bump) = bumps.get_mut(pkg_name) {
-        if bump.bump_type != max_bump {
+      if let Some(bump) = bumps.get_mut(pkg_name)
+        && bump.bump_type != max_bump {
           bump.bump_type = max_bump;
           bump.new_version = bump_version(&bump.old_version, max_bump);
         }
-      }
     }
   }
 
@@ -514,8 +512,8 @@ pub fn apply_release_plan(
       _ => continue,
     };
 
-    if let Some(ref mut deps) = field {
-      if let Some(current_range) = deps.get(&update.dep_name).cloned() {
+    if let Some(deps) = field
+      && let Some(current_range) = deps.get(&update.dep_name).cloned() {
         // Find the old and new versions for this dependency
         if let Some(bump) = plan.bumps.get(&update.dep_name) {
           let new_range = crate::package_json::compute_new_range(
@@ -536,7 +534,6 @@ pub fn apply_release_plan(
           }
         }
       }
-    }
 
     PackageJson::write(&update.dependent_package_path, &pkg_json)?;
   }
@@ -557,14 +554,13 @@ pub fn apply_release_plan(
       // Group summaries by type for this package
       let mut type_summaries: IndexMap<BumpType, Vec<String>> = IndexMap::new();
       for rf_path in &bump.release_files {
-        if let Ok(rf) = parse_release_file(rf_path) {
-          if let Some(bt) = rf.releases.get(&bump.package_name) {
+        if let Ok(rf) = parse_release_file(rf_path)
+          && let Some(bt) = rf.releases.get(&bump.package_name) {
             type_summaries
               .entry(*bt)
               .or_default()
               .push(rf.summary.clone());
           }
-        }
       }
 
       if type_summaries.is_empty() {
@@ -609,22 +605,34 @@ pub fn apply_release_plan(
   manifest.save(release_dir)?;
 
   // Phase 4: Consume release files
-  // Collect all release files that touch a pre-release package — those are kept
-  let mut pre_release_files: HashSet<&PathBuf> = HashSet::new();
+  // Build a set of package names that are in pre-release mode
+  let mut pre_release_pkgs: HashSet<&str> = HashSet::new();
   for (_name, bump) in &plan.bumps {
     if !bump.new_version.pre.as_str().is_empty() {
+      pre_release_pkgs.insert(bump.package_name.as_str());
+    }
+  }
+
+  // Collect release files that touch at least one pre-release package
+  let mut pre_release_files: HashSet<PathBuf> = HashSet::new();
+  for (_name, bump) in &plan.bumps {
+    if pre_release_pkgs.contains(bump.package_name.as_str()) {
       for rf_path in &bump.release_files {
-        pre_release_files.insert(rf_path);
+        pre_release_files.insert(rf_path.clone());
       }
     }
   }
+
+  // Closure to check if a package name is in pre-release mode
+  let is_pre = |name: &str| -> bool { pre_release_pkgs.contains(name) };
 
   if archive {
     let archive_dir = release_dir.join("archive");
     for (_name, bump) in &plan.bumps {
       for rf_path in &bump.release_files {
         if pre_release_files.contains(rf_path) {
-          println!("  {} (kept — pre-release)", rf_path.display());
+          crate::release_file::strip_stable_entries(rf_path, is_pre)?;
+          println!("  {} (stripped — keeping pre-release entries)", rf_path.display());
           continue;
         }
         crate::release_file::archive_release_file(rf_path, &archive_dir)?;
@@ -637,7 +645,8 @@ pub fn apply_release_plan(
       for rf_path in &bump.release_files {
         if pre_release_files.contains(rf_path) {
           if consumed.insert(rf_path.clone()) {
-            println!("  {} (kept — pre-release)", rf_path.display());
+            crate::release_file::strip_stable_entries(rf_path, is_pre)?;
+            println!("  {} (stripped — keeping pre-release entries)", rf_path.display());
           }
           continue;
         }
@@ -1300,5 +1309,65 @@ Completely rewritten core logic."#;
       tools.summaries,
       vec!["Updated with @scope/core.".to_string()]
     );
+  }
+
+  #[test]
+  fn test_mixed_release_file_strips_stable_entries() {
+    // When a release file mentions both a pre-release and a stable package,
+    // the bump should strip the stable entries from the file so they don't
+    // repeat on the next bump, while keeping the pre-release entries.
+    let tmp = TempDir::new().unwrap();
+    let workspace = create_test_workspace(&tmp);
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    // Create a release file that references both a pre-release and a stable package
+    let content = r#"---
+"@scope/core": patch
+"@scope/react": minor
+---
+
+Mixed changes for pre-release and stable."#;
+    let rf_path = release_dir.join("mixed.md");
+    std::fs::write(&rf_path, content).unwrap();
+
+    let config = OxrlsConfig {
+      pre_mode: vec![crate::config::PreModeEntry {
+        tag: "beta".to_string(),
+        packages: vec!["@scope/core".to_string()],
+      }],
+      ..Default::default()
+    };
+
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    // Verify both packages are in the plan
+    assert!(plan.bumps.contains_key("@scope/core"));
+    assert!(plan.bumps.contains_key("@scope/react"));
+
+    // Core is in pre-mode → should have a pre-release version
+    assert!(plan.bumps.get("@scope/core").unwrap().new_version.to_string().contains("beta"));
+    // React is not in pre-mode → should have a normal version
+    assert!(!plan.bumps.get("@scope/react").unwrap().new_version.to_string().contains("beta"));
+
+    // Apply the release plan
+    apply_release_plan(&workspace, &plan, &config, &release_dir, false, false).unwrap();
+
+    // The release file should still exist (because of @scope/core being pre-release)
+    assert!(rf_path.exists(), "Release file should still exist for pre-release package");
+
+    // Parse it — it should ONLY contain @scope/core, not @scope/react
+    let rf = crate::release_file::parse_release_file(&rf_path).unwrap();
+    assert!(
+      rf.releases.contains_key("@scope/core"),
+      "Should still contain pre-release package"
+    );
+    assert!(
+      !rf.releases.contains_key("@scope/react"),
+      "Should NOT contain stable package — it should have been stripped"
+    );
+    // Summary should be preserved
+    assert!(!rf.summary.is_empty());
   }
 }

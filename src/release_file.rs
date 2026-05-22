@@ -283,8 +283,8 @@ pub fn create_release_file(
 
   let mut content = format!("---\n{}---\n\n{}", yaml_lines, summary);
 
-  if let Some(details_text) = details {
-    if !details_text.is_empty() {
+  if let Some(details_text) = details
+    && !details_text.is_empty() {
       // Indent each line of details by 2 spaces so it aligns under the summary
       let indented: String = details_text
         .lines()
@@ -299,7 +299,6 @@ pub fn create_release_file(
         .join("\n");
       content.push_str(&format!("\n{}", indented));
     }
-  }
 
   fs::write(&path, content).map_err(OxrlsError::Io)?;
   Ok(path)
@@ -331,6 +330,57 @@ pub fn archive_release_file(path: &Path, archive_dir: &Path) -> Result<()> {
       e
     ))
   })?;
+  Ok(())
+}
+
+/// Strip stable (non-pre-release) entries from a release file.
+/// Used when a mixed release file contains entries for both pre-release
+/// and stable packages — the stable entries are removed so they don't
+/// repeat on the next bump, while pre-release entries are kept.
+pub fn strip_stable_entries(path: &Path, is_pre_release: impl Fn(&str) -> bool) -> Result<()> {
+  // Read and parse the current file
+  let content = std::fs::read_to_string(path)
+    .map_err(|e| OxrlsError::ReleaseFile(format!("Failed to read {}: {}", path.display(), e)))?;
+  
+  let rf = parse_release_content(&content, path)?;
+  
+  // Filter to only keep pre-release entries
+  let releases: Vec<(String, BumpType)> = rf
+    .releases
+    .iter()
+    .filter(|(pkg_name, _)| is_pre_release(pkg_name))
+    .map(|(k, v)| (k.clone(), *v))
+    .collect();
+  let filtered: IndexMap<String, BumpType> = releases.into_iter().collect();
+  
+  if filtered.is_empty() {
+    // No pre-release entries left — consume the file
+    consume_release_file(path)
+  } else if filtered.len() == rf.releases.len() {
+    // All entries are pre-release — keep as-is
+    Ok(())
+  } else {
+    // Write back with only pre-release entries
+    write_filtered_release_file(path, &filtered, &rf.summary)
+  }
+}
+
+/// Write a release file with filtered entries while preserving the original file path.
+fn write_filtered_release_file(
+  path: &Path,
+  releases: &IndexMap<String, BumpType>,
+  summary: &str,
+) -> Result<()> {
+  let mut yaml_lines = String::new();
+  for (pkg, bump) in releases {
+    yaml_lines.push_str(&format!(
+      "\"{}\": {}\n",
+      pkg,
+      serde_json::to_string(&bump).unwrap_or_else(|_| "patch".to_string())
+    ));
+  }
+  let content = format!("---\n{}---\n\n{}", yaml_lines, summary);
+  std::fs::write(path, content).map_err(OxrlsError::Io)?;
   Ok(())
 }
 

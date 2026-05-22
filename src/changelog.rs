@@ -28,8 +28,8 @@ pub fn generate_changelog_section(entry: &ChangelogEntry) -> String {
   ];
 
   for (heading, bump_type) in &type_names {
-    if let Some(changes) = entry.changes.get(bump_type) {
-      if !changes.is_empty() {
+    if let Some(changes) = entry.changes.get(bump_type)
+      && !changes.is_empty() {
         lines.push(format!("### {}", heading));
         lines.push(String::new());
         for change in changes {
@@ -52,7 +52,6 @@ pub fn generate_changelog_section(entry: &ChangelogEntry) -> String {
         }
         lines.push(String::new());
       }
-    }
   }
 
   // Remove trailing newline

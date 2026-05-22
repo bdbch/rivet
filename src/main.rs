@@ -4,16 +4,16 @@ use clap::Parser;
 use indexmap::IndexMap;
 use inquire::{MultiSelect, Select, Text};
 
-use vp_release::bump::{apply_release_plan, build_release_plan, find_release_files, print_plan};
-use vp_release::cli::{Cli, Commands, PreAction};
-use vp_release::config::{OxrlsConfig, PreModeEntry};
-use vp_release::init_wizard::run_init_wizard;
-use vp_release::error::Result;
-use vp_release::package_json::PackageJson;
-use vp_release::premode::PreState;
-use vp_release::release::{publish_manifest, ReleaseManifest};
-use vp_release::release_file::{create_release_file, parse_release_file, BumpType};
-use vp_release::workspace::{find_workspace_root, load_workspace, Workspace};
+use oxrls::bump::{apply_release_plan, build_release_plan, find_release_files, print_plan};
+use oxrls::cli::{Cli, Commands, PreAction};
+use oxrls::config::{OxrlsConfig, PreModeEntry};
+use oxrls::init_wizard::run_init_wizard;
+use oxrls::error::Result;
+use oxrls::package_json::PackageJson;
+use oxrls::premode::PreState;
+use oxrls::release::{publish_manifest, ReleaseManifest};
+use oxrls::release_file::{create_release_file, parse_release_file, BumpType};
+use oxrls::workspace::{find_workspace_root, load_workspace, Workspace};
 use glob::Pattern;
 
 fn main() {
@@ -60,7 +60,7 @@ fn cmd_init(
   release_dir: Option<&str>,
   non_interactive: bool,
 ) -> Result<()> {
-  let cwd = std::env::current_dir().map_err(vp_release::error::OxrlsError::Io)?;
+  let cwd = std::env::current_dir().map_err(oxrls::error::OxrlsError::Io)?;
 
   // Detect workspace for package lists
   let root = find_workspace_root(Path::new(".")).unwrap_or_else(|_| cwd.clone());
@@ -102,7 +102,7 @@ fn cmd_init(
   // Create release directory with README
   let release_dir = cwd.join(&config.release_dir);
   std::fs::create_dir_all(&release_dir).map_err(|e| {
-    vp_release::error::OxrlsError::Config(format!("Failed to create release dir: {}", e))
+    oxrls::error::OxrlsError::Config(format!("Failed to create release dir: {}", e))
   })?;
 
   let readme_path = release_dir.join("README.md");
@@ -113,7 +113,7 @@ fn cmd_init(
       config.release_dir.trim_start_matches('.')
     );
     std::fs::write(&readme_path, readme_content).map_err(|e| {
-      vp_release::error::OxrlsError::Config(format!("Failed to create README: {}", e))
+      oxrls::error::OxrlsError::Config(format!("Failed to create README: {}", e))
     })?;
     println!("Created release directory: {}", release_dir.display());
   }
@@ -144,7 +144,7 @@ fn cmd_new(packages: &[String], summary: Option<&str>, details: Option<&str>) ->
   if packages.is_empty() {
     // Interactive mode
     if workspace.packages.is_empty() {
-      return Err(vp_release::error::OxrlsError::ReleaseFile(
+      return Err(oxrls::error::OxrlsError::ReleaseFile(
         "No workspace packages found. Run `oxrls init` first or add packages.".to_string(),
       ));
     }
@@ -153,10 +153,10 @@ fn cmd_new(packages: &[String], summary: Option<&str>, details: Option<&str>) ->
 
     let selected = MultiSelect::new("Which packages changed?", package_names)
       .prompt()
-      .map_err(|e| vp_release::error::OxrlsError::Other(format!("Selection failed: {}", e)))?;
+      .map_err(|e| oxrls::error::OxrlsError::Other(format!("Selection failed: {}", e)))?;
 
     if selected.is_empty() {
-      return Err(vp_release::error::OxrlsError::ReleaseFile(
+      return Err(oxrls::error::OxrlsError::ReleaseFile(
         "No packages selected.".to_string(),
       ));
     }
@@ -164,7 +164,7 @@ fn cmd_new(packages: &[String], summary: Option<&str>, details: Option<&str>) ->
     let bump_options = vec!["patch", "minor", "major"];
     let bump = Select::new("Bump type for all selected packages:", bump_options)
       .prompt()
-      .map_err(|e| vp_release::error::OxrlsError::Other(format!("Selection failed: {}", e)))?;
+      .map_err(|e| oxrls::error::OxrlsError::Other(format!("Selection failed: {}", e)))?;
     let bump_type: BumpType = bump.parse::<BumpType>()?;
 
     let mut releases_map: IndexMap<String, BumpType> = IndexMap::new();
@@ -174,7 +174,7 @@ fn cmd_new(packages: &[String], summary: Option<&str>, details: Option<&str>) ->
 
     let summary_text = Text::new("Summary of the change:")
       .prompt()
-      .map_err(|e| vp_release::error::OxrlsError::Other(format!("Input failed: {}", e)))?;
+      .map_err(|e| oxrls::error::OxrlsError::Other(format!("Input failed: {}", e)))?;
 
     let details_text: Option<String> = Text::new("Optional details (enter to skip):")
       .prompt()
@@ -196,7 +196,7 @@ fn cmd_new(packages: &[String], summary: Option<&str>, details: Option<&str>) ->
       let parts: Vec<&str> = pkg_arg.splitn(2, ':').collect();
       let pkg_name = parts[0];
       let bump_str = parts.get(1).ok_or_else(|| {
-        vp_release::error::OxrlsError::ReleaseFile(format!(
+        oxrls::error::OxrlsError::ReleaseFile(format!(
           "Invalid package format: \"{}\". Expected format: \"@scope/pkg:bumptype\"",
           pkg_arg
         ))
@@ -369,7 +369,7 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
 
   let (mut config, config_path) = OxrlsConfig::load(&root)?;
   if config_path.as_os_str().is_empty() {
-    return Err(vp_release::error::OxrlsError::Config(
+    return Err(oxrls::error::OxrlsError::Config(
       "No oxrls.json found. Run `oxrls init` first.".to_string(),
     ));
   }
@@ -379,7 +379,7 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
   for pattern in package_patterns {
     if pattern.contains('*') || pattern.contains('?') {
       let pat = Pattern::new(pattern).map_err(|e| {
-        vp_release::error::OxrlsError::Config(format!("Invalid glob pattern: {}", e))
+        oxrls::error::OxrlsError::Config(format!("Invalid glob pattern: {}", e))
       })?;
       for name in workspace.packages.keys() {
         if pat.matches(name) && !resolved_packages.contains(name) {
@@ -401,7 +401,7 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
           .cloned()
           .collect();
         if matches.is_empty() {
-          return Err(vp_release::error::OxrlsError::Config(format!(
+          return Err(oxrls::error::OxrlsError::Config(format!(
             "No workspace package matches \"{}\". Available packages:\n  {}",
             pattern,
             workspace.packages.keys().cloned().collect::<Vec<_>>().join("\n  ")
@@ -417,7 +417,7 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
   }
 
   if resolved_packages.is_empty() {
-    return Err(vp_release::error::OxrlsError::Config(
+    return Err(oxrls::error::OxrlsError::Config(
       "No packages matched the given patterns.".to_string(),
     ));
   }
@@ -442,7 +442,7 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
           continue;
         }
         if entry.packages.iter().any(|p| p == pkg_name) {
-          return Err(vp_release::error::OxrlsError::Config(format!(
+          return Err(oxrls::error::OxrlsError::Config(format!(
             "Package \"{}\" is already in pre-mode \"{}\". Use --force to migrate.",
             pkg_name, entry.tag
           )));
@@ -463,11 +463,10 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
     for pkg_name in &resolved_packages {
       if pre_state.is_in_pre(pkg_name) {
         // Check if it was in a different tag
-        if let Some(entry) = pre_state.pre_versions.get(pkg_name) {
-          if entry.tag != tag {
+        if let Some(entry) = pre_state.pre_versions.get(pkg_name)
+          && entry.tag != tag {
             pre_state.remove(pkg_name);
           }
-        }
       }
     }
     pre_state.save(
@@ -504,7 +503,7 @@ fn cmd_pre_exit(package_patterns: &[String]) -> Result<()> {
 
   let (mut config, config_path) = OxrlsConfig::load(&root)?;
   if config_path.as_os_str().is_empty() {
-    return Err(vp_release::error::OxrlsError::Config(
+    return Err(oxrls::error::OxrlsError::Config(
       "No oxrls.json found.".to_string(),
     ));
   }
@@ -514,7 +513,7 @@ fn cmd_pre_exit(package_patterns: &[String]) -> Result<()> {
   for pattern in package_patterns {
     if pattern.contains('*') || pattern.contains('?') {
       let pat = Pattern::new(pattern).map_err(|e| {
-        vp_release::error::OxrlsError::Config(format!("Invalid glob pattern: {}", e))
+        oxrls::error::OxrlsError::Config(format!("Invalid glob pattern: {}", e))
       })?;
       for name in workspace.packages.keys() {
         if pat.matches(name) && !to_remove.contains(name) {
@@ -535,7 +534,7 @@ fn cmd_pre_exit(package_patterns: &[String]) -> Result<()> {
           .cloned()
           .collect();
         if matches.is_empty() {
-          return Err(vp_release::error::OxrlsError::Config(format!(
+          return Err(oxrls::error::OxrlsError::Config(format!(
             "No workspace package matches \"{}\". Available packages:\n  {}",
             pattern,
             workspace.packages.keys().cloned().collect::<Vec<_>>().join("\n  ")
@@ -619,7 +618,7 @@ fn cmd_pre_interactive() -> Result<()> {
   let workspace = load_workspace(&root)?;
 
   if workspace.packages.is_empty() {
-    return Err(vp_release::error::OxrlsError::Config(
+    return Err(oxrls::error::OxrlsError::Config(
       "No packages found in workspace.".to_string(),
     ));
   }
@@ -627,10 +626,10 @@ fn cmd_pre_interactive() -> Result<()> {
   let package_names: Vec<&String> = workspace.packages.keys().collect();
   let selected = MultiSelect::new("Which packages should enter pre-release mode?", package_names)
     .prompt()
-    .map_err(|e| vp_release::error::OxrlsError::Other(format!("Selection failed: {}", e)))?;
+    .map_err(|e| oxrls::error::OxrlsError::Other(format!("Selection failed: {}", e)))?;
 
   if selected.is_empty() {
-    return Err(vp_release::error::OxrlsError::Other(
+    return Err(oxrls::error::OxrlsError::Other(
       "No packages selected.".to_string(),
     ));
   }
@@ -638,7 +637,7 @@ fn cmd_pre_interactive() -> Result<()> {
   let tag = Text::new("Pre-release tag (e.g., beta, alpha, rc):")
     .with_placeholder("beta")
     .prompt()
-    .map_err(|e| vp_release::error::OxrlsError::Other(format!("Input failed: {}", e)))?;
+    .map_err(|e| oxrls::error::OxrlsError::Other(format!("Input failed: {}", e)))?;
 
   let tag = if tag.trim().is_empty() {
     "beta".to_string()

@@ -154,7 +154,7 @@ pub fn publish_manifest(
 
     println!("{} (v{}, {})", package_name, current_version, dist_tag);
 
-    if let Some(ref reg) = registry {
+    if let Some(reg) = registry {
       println!("  Registry: {}", reg);
     }
 
