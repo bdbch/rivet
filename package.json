@@ -1,62 +1,24 @@
 {
   "name": "oxrls",
-  "version": "0.1.0",
-  "description": "Rust-powered release management for JS/TS monorepos — version bumps, changelogs, pre-release mode, and npm publishing",
-  "main": "index.js",
+  "version": "1.0.0-alpha.1",
+  "ava": {
+    "environmentVariables": {
+      "OXC_TSCONFIG_PATH": "./__test__/tsconfig.json"
+    },
+    "extensions": [
+      "ts"
+    ],
+    "nodeArguments": [
+      "--import",
+      "@oxc-node/core/register"
+    ],
+    "timeout": "2m",
+    "workerThreads": false
+  },
   "bin": {
     "oxrls": "./bin/oxrls.sh"
   },
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com/napi-rs/package-template.git"
-  },
-  "license": "MIT",
-  "keywords": [
-    "release",
-    "monorepo",
-    "changesets",
-    "versioning",
-    "changelog",
-    "napi-rs"
-  ],
-  "files": [
-    "bin/",
-    "index.js",
-    "index.d.ts"
-  ],
-  "napi": {
-    "binaryName": "oxrls-native",
-    "targets": [
-      "x86_64-pc-windows-msvc",
-      "x86_64-apple-darwin",
-      "x86_64-unknown-linux-gnu",
-      "aarch64-apple-darwin"
-    ]
-  },
-  "engines": {
-    "node": ">= 18.17.0 < 19 || >= 20.3.0 < 21 || >= 21.1.0"
-  },
-  "publishConfig": {
-    "registry": "https://registry.npmjs.org/",
-    "access": "public"
-  },
-  "packageManager": "yarn@4.14.1",
-  "scripts": {
-    "artifacts": "napi artifacts",
-    "bench": "node --import @oxc-node/core/register benchmark/bench.ts",
-    "build": "napi build --platform --release",
-    "build:debug": "napi build --platform",
-    "build:cli": "cargo build --release --bin oxrls && cp target/release/oxrls bin/oxrls",
-    "format": "run-p format:prettier format:rs format:toml",
-    "format:prettier": "prettier . -w",
-    "format:rs": "cargo fmt",
-    "format:toml": "taplo format",
-    "lint": "oxlint .",
-    "prepare": "husky",
-    "prepublishOnly": "napi prepublish -t npm",
-    "test": "ava",
-    "postinstall": "node scripts/postinstall.js"
-  },
+  "description": "Rust-powered release management for JS/TS monorepos — version bumps, changelogs, pre-release mode, and npm publishing",
   "devDependencies": {
     "@emnapi/core": "^1.5.0",
     "@emnapi/runtime": "^1.5.0",
@@ -74,6 +36,23 @@
     "tinybench": "^6.0.0",
     "typescript": "^6.0.0"
   },
+  "engines": {
+    "node": ">= 18.17.0 < 19 || >= 20.3.0 < 21 || >= 21.1.0"
+  },
+  "files": [
+    "bin/",
+    "index.js",
+    "index.d.ts"
+  ],
+  "keywords": [
+    "release",
+    "monorepo",
+    "changesets",
+    "versioning",
+    "changelog",
+    "napi-rs"
+  ],
+  "license": "MIT",
   "lint-staged": {
     "*.@(js|ts|tsx)": [
       "oxlint --fix"
@@ -85,23 +64,46 @@
       "taplo format"
     ]
   },
-  "ava": {
-    "extensions": ["ts"],
-    "timeout": "2m",
-    "workerThreads": false,
-    "environmentVariables": {
-      "OXC_TSCONFIG_PATH": "./__test__/tsconfig.json"
-    },
-    "nodeArguments": [
-      "--import",
-      "@oxc-node/core/register"
+  "main": "index.js",
+  "napi": {
+    "binaryName": "oxrls-native",
+    "targets": [
+      "x86_64-pc-windows-msvc",
+      "x86_64-apple-darwin",
+      "x86_64-unknown-linux-gnu",
+      "aarch64-apple-darwin"
     ]
   },
+  "packageManager": "yarn@4.14.1",
   "prettier": {
+    "arrowParens": "always",
     "printWidth": 120,
     "semi": false,
-    "trailingComma": "all",
     "singleQuote": true,
-    "arrowParens": "always"
+    "trailingComma": "all"
+  },
+  "publishConfig": {
+    "access": "public",
+    "registry": "https://registry.npmjs.org/"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+ssh://git@github.com/napi-rs/package-template.git"
+  },
+  "scripts": {
+    "artifacts": "napi artifacts",
+    "bench": "node --import @oxc-node/core/register benchmark/bench.ts",
+    "build": "napi build --platform --release",
+    "build:cli": "cargo build --release --bin oxrls && cp target/release/oxrls bin/oxrls",
+    "build:debug": "napi build --platform",
+    "format": "run-p format:prettier format:rs format:toml",
+    "format:prettier": "prettier . -w",
+    "format:rs": "cargo fmt",
+    "format:toml": "taplo format",
+    "lint": "oxlint .",
+    "postinstall": "node scripts/postinstall.js",
+    "prepare": "husky",
+    "prepublishOnly": "napi prepublish -t npm",
+    "test": "ava"
   }
 }
