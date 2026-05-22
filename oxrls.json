@@ -1,5 +1,6 @@
 {
   "schema": "https://oxrelease.dev/schema.json",
+  "syncCargoToml": true,
   "release_dir": ".oxrls",
   "changelog": true,
   "generate_packages_changelog": false,
@@ -12,9 +13,7 @@
   "pre_mode": [
     {
       "tag": "alpha",
-      "packages": [
-        "oxrls"
-      ]
+      "packages": ["oxrls"]
     }
   ]
 }
