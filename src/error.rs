@@ -35,6 +35,9 @@ pub enum OxrlsError {
   #[error("Semver error: {0}")]
   Semver(#[from] semver::Error),
 
+  #[error("CLI error: {0}")]
+  Cli(String),
+
   #[error("{0}")]
   Other(String),
 }

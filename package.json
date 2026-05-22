@@ -15,7 +15,7 @@
     "timeout": "2m",
     "workerThreads": false
   },
-  "bin": "./bin/oxrls.sh",
+  "bin": "./bin/oxrls.js",
   "description": "Rust-powered release management for JS/TS monorepos — version bumps, changelogs, pre-release mode, and npm publishing",
   "devDependencies": {
     "@emnapi/core": "^1.5.0",
@@ -26,13 +26,10 @@
     "@tybys/wasm-util": "^0.10.0",
     "ava": "^8.0.0",
     "chalk": "^5.6.2",
-    "husky": "^9.1.7",
-    "lint-staged": "^17.0.0",
     "npm-run-all2": "^8.0.4",
-    "oxlint": "^1.14.0",
-    "prettier": "^3.6.2",
     "tinybench": "^6.0.0",
-    "typescript": "^6.0.0"
+    "typescript": "^6.0.0",
+    "vite-plus": "latest"
   },
   "engines": {
     "node": ">= 18.17.0 < 19 || >= 20.3.0 < 21 || >= 21.1.0"
@@ -51,17 +48,6 @@
     "napi-rs"
   ],
   "license": "MIT",
-  "lint-staged": {
-    "*.@(js|ts|tsx)": [
-      "oxlint --fix"
-    ],
-    "*.@(js|ts|tsx|yml|yaml|md|json)": [
-      "prettier --write"
-    ],
-    "*.toml": [
-      "taplo format"
-    ]
-  },
   "main": "index.js",
   "napi": {
     "binaryName": "oxrls-native",
@@ -73,13 +59,6 @@
     ]
   },
   "packageManager": "yarn@4.14.1",
-  "prettier": {
-    "arrowParens": "always",
-    "printWidth": 120,
-    "semi": false,
-    "singleQuote": true,
-    "trailingComma": "all"
-  },
   "publishConfig": {
     "access": "public",
     "registry": "https://registry.npmjs.org/"
@@ -92,16 +71,19 @@
     "artifacts": "napi artifacts",
     "bench": "node --import @oxc-node/core/register benchmark/bench.ts",
     "build": "napi build --platform --release",
-    "build:cli": "cargo build --release --bin oxrls && cp target/release/oxrls bin/oxrls",
+    "build:cli": "cargo build --release --bin oxrls",
     "build:debug": "napi build --platform",
     "format": "run-p format:prettier format:rs format:toml",
-    "format:prettier": "prettier . -w",
+    "format:prettier": "vp fmt .",
     "format:rs": "cargo fmt",
     "format:toml": "taplo format",
-    "lint": "oxlint .",
-    "postinstall": "node scripts/postinstall.js",
-    "prepare": "husky",
+    "lint": "vp lint .",
+    "prepare": "vp config",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava"
+  },
+  "resolutions": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
   }
 }
