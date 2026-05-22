@@ -237,11 +237,11 @@ fn cmd_status() -> Result<()> {
   for file_path in &files {
     match parse_release_file(file_path) {
       Ok(rf) => {
-        println!("  {}", rf.path.display());
+        let fname = file_path.file_name().map(|n| n.to_string_lossy()).unwrap_or_default();
+        println!("  {}", fname);
         for (pkg, bump) in &rf.releases {
           println!("    {}  {}", pkg, bump);
         }
-        println!();
       }
       Err(e) => {
         eprintln!("  ERROR parsing {}: {}", file_path.display(), e);
@@ -252,14 +252,18 @@ fn cmd_status() -> Result<()> {
   // Show calculated bumps
   match build_release_plan(&workspace, &config, &release_dir, true) {
     Ok(plan) => {
-      println!("Calculated bumps:\n");
+            let max_name = plan.bumps.values().map(|b| b.package_name.len()).max().unwrap_or(20);
+      println!("Calculated bumps:");
       for (_name, bump) in &plan.bumps {
         println!(
-          "  {} {} -> {}",
-          bump.package_name, bump.old_version, bump.new_version
+          "  {:<width$}  {:>12} →  {:<12}  ({})",
+          bump.package_name,
+          bump.old_version.to_string(),
+          bump.new_version.to_string(),
+          bump.bump_type_str(),
+          width = max_name
         );
       }
-
       if !plan.internal_dep_updates.is_empty() {
         println!("\nInternal dependency updates:\n");
         for update in &plan.internal_dep_updates {
@@ -294,7 +298,18 @@ fn cmd_bump(dry_run: bool, archive: bool) -> Result<()> {
     return Ok(());
   }
 
-  println!("Bumped packages:\n");
+  println!("Bumped packages:");
+  let max_name = plan.bumps.values().map(|b| b.package_name.len()).max().unwrap_or(20);
+  for (_name, bump) in &plan.bumps {
+    println!(
+      "  {:<width$}  {:>12} →  {:<12}  ({})",
+      bump.package_name,
+      bump.old_version.to_string(),
+      bump.new_version.to_string(),
+      bump.bump_type_str(),
+      width = max_name
+    );
+  }
   let plan_clone = plan.clone();
   apply_release_plan(&workspace, &plan, &config, &release_dir, false, archive)?;
 

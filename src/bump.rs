@@ -689,14 +689,16 @@ pub fn apply_release_plan(
 
 /// Print the release plan without making changes.
 pub fn print_plan(plan: &ReleasePlan) {
+  let max_name = plan.bumps.values().map(|b| b.package_name.len()).max().unwrap_or(20);
   println!("Bumped packages:");
   for (_name, bump) in &plan.bumps {
     println!(
-      "  {} {} -> {} ({})",
+      "  {:<width$}  {:>12} ->  {:<12}  ({})",
       bump.package_name,
-      bump.old_version,
-      bump.new_version,
-      bump.bump_type_str()
+      bump.old_version.to_string(),
+      bump.new_version.to_string(),
+      bump.bump_type_str(),
+      width = max_name
     );
   }
 
@@ -754,7 +756,7 @@ pub fn find_release_files(release_dir: &Path) -> Result<Vec<PathBuf>> {
 }
 
 impl PlannedBump {
-  fn bump_type_str(&self) -> &str {
+  pub fn bump_type_str(&self) -> &str {
     match self.bump_type {
       BumpType::Patch => "patch",
       BumpType::Minor => "minor",
@@ -1079,7 +1081,7 @@ Breaking change."#;
     let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
-    // Major bump from 1.2.3 → 2.0.0-rc.1
+    // Major bump from 1.2.3 -> 2.0.0-rc.1
     assert_eq!(core.new_version.to_string(), "1.2.3-rc.1");
     assert_eq!(core.old_version.to_string(), "1.2.3");
   }
@@ -1159,7 +1161,7 @@ Fix bug."#;
     let utils = plan.bumps.get("@scope/utils").unwrap();
 
     assert_eq!(core.new_version, utils.new_version);
-    // Highest old version is @scope/core 1.2.3, patched → 1.2.4
+    // Highest old version is @scope/core 1.2.3, patched -> 1.2.4
     assert_eq!(core.new_version, semver::Version::new(1, 2, 4));
     assert_eq!(utils.new_version, semver::Version::new(1, 2, 4));
   }
@@ -1245,7 +1247,7 @@ Add feature."#;
     // Both should be minor bumps
     assert_eq!(core.bump_type, BumpType::Minor);
     assert_eq!(react.bump_type, BumpType::Minor);
-    // Core: 1.2.3 → 1.3.0, React: 1.0.0 → 1.1.0
+    // Core: 1.2.3 -> 1.3.0, React: 1.0.0 -> 1.1.0
     assert_eq!(core.new_version, semver::Version::new(1, 3, 0));
     assert_eq!(react.new_version, semver::Version::new(1, 1, 0));
   }
@@ -1372,9 +1374,9 @@ Mixed changes for pre-release and stable."#;
     assert!(plan.bumps.contains_key("@scope/core"));
     assert!(plan.bumps.contains_key("@scope/react"));
 
-    // Core is in pre-mode → should have a pre-release version
+    // Core is in pre-mode -> should have a pre-release version
     assert!(plan.bumps.get("@scope/core").unwrap().new_version.to_string().contains("beta"));
-    // React is not in pre-mode → should have a normal version
+    // React is not in pre-mode -> should have a normal version
     assert!(!plan.bumps.get("@scope/react").unwrap().new_version.to_string().contains("beta"));
 
     // Apply the release plan
