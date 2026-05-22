@@ -1,6 +1,6 @@
 {
   "name": "oxrls",
-  "version": "1.0.0",
+  "version": "0.0.1",
   "ava": {
     "environmentVariables": {
       "OXC_TSCONFIG_PATH": "./__test__/tsconfig.json"
