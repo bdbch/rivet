@@ -349,25 +349,6 @@ pub fn strip_stable_entries(path: &Path, _is_pre_release: impl Fn(&str) -> bool)
   consume_release_file(path)
 }
 
-/// Write a release file with filtered entries while preserving the original file path.
-fn write_filtered_release_file(
-  path: &Path,
-  releases: &IndexMap<String, BumpType>,
-  summary: &str,
-) -> Result<()> {
-  let mut yaml_lines = String::new();
-  for (pkg, bump) in releases {
-    yaml_lines.push_str(&format!(
-      "\"{}\": {}\n",
-      pkg,
-      serde_json::to_string(&bump).unwrap_or_else(|_| "patch".to_string())
-    ));
-  }
-  let content = format!("---\n{}---\n\n{}", yaml_lines, summary);
-  std::fs::write(path, content).map_err(OxrlsError::Io)?;
-  Ok(())
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;

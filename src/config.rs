@@ -230,9 +230,9 @@ impl OxrlsConfig {
     let base = config_path.parent().unwrap_or_else(|| Path::new("."));
     // If the config's parent directory already has the release_dir name, or if
     // the release_dir is ".", use the parent directly.
-    if self.release_dir == "." || self.release_dir.is_empty() {
-      base.to_path_buf()
-    } else if base.file_name().and_then(|n| n.to_str()) == Some(self.release_dir.as_str()) {
+    if self.release_dir == "." || self.release_dir.is_empty()
+      || base.file_name().and_then(|n| n.to_str()) == Some(self.release_dir.as_str())
+    {
       base.to_path_buf()
     } else {
       base.join(&self.release_dir)
