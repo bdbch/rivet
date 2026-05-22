@@ -32,6 +32,7 @@ fn main() {
     } => cmd_new(packages, summary.as_deref(), details.as_deref()),
     Commands::Status => cmd_status(),
     Commands::Bump { dry_run, archive } => cmd_bump(*dry_run, *archive),
+    Commands::Check => cmd_check(),
     Commands::Release {
       dry_run,
       tag,
@@ -320,6 +321,28 @@ fn cmd_bump(dry_run: bool, archive: bool) -> Result<()> {
 
   println!("\nDone!");
   Ok(())
+}
+
+fn cmd_check() -> Result<()> {
+  let root = find_workspace_root(Path::new("."))?;
+  let (config, config_path) = OxrlsConfig::load(&root)?;
+  let release_dir = get_release_dir(&root, &config, &config_path);
+
+  let release_files = find_release_files(&release_dir).unwrap_or_default();
+  let has_release_plan = ReleaseManifest::path(&release_dir).exists();
+
+  if !release_files.is_empty() {
+    println!("Release files exist, skip release");
+    std::process::exit(0);
+  }
+
+  if has_release_plan {
+    println!("Release plan exists and files are clean, can release");
+    std::process::exit(1);
+  }
+
+  println!("Nothing to release");
+  std::process::exit(0);
 }
 
 fn cmd_release(dry_run: bool, tag_override: Option<&str>) -> Result<()> {

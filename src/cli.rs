@@ -58,6 +58,9 @@ pub enum Commands {
     archive: bool,
   },
 
+  /// Check CI state — exit 0 if release files pending, exit 1 if ready to publish
+  Check,
+
   /// Publish all packages from the last bump to npm
   Release {
     /// Show what would be published without publishing
