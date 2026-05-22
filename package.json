@@ -15,9 +15,7 @@
     "timeout": "2m",
     "workerThreads": false
   },
-  "bin": {
-    "oxrls": "./bin/oxrls.sh"
-  },
+  "bin": "./bin/oxrls.sh",
   "description": "Rust-powered release management for JS/TS monorepos — version bumps, changelogs, pre-release mode, and npm publishing",
   "devDependencies": {
     "@emnapi/core": "^1.5.0",
