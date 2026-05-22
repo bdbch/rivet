@@ -1,9 +1,9 @@
 
 [package]
-authors = ["LongYinan <lynweklm@gmail.com>"]
-edition = "2021"
-name = "vp_release"
-version = "0.1.0"
+authors = ["Dominik Biedebach <dominik@bdbch.com>"]
+edition = "2026"
+name = "oxrls"
+version = "1.0.0-alpha.1"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
