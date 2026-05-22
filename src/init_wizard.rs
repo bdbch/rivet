@@ -80,7 +80,7 @@ pub fn run_init_wizard(
   };
 
   // 5. Access
-  let access = Select::new(
+  let _access = Select::new(
     "Default npm access (can be overridden per-package via publishConfig.access):",
     vec!["public", "restricted"],
   )

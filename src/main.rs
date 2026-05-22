@@ -250,7 +250,7 @@ fn cmd_status() -> Result<()> {
   }
 
   // Show calculated bumps
-  match build_release_plan(&workspace, &config, &release_dir) {
+  match build_release_plan(&workspace, &config, &release_dir, false) {
     Ok(plan) => {
       println!("Calculated bumps:\n");
       for (_name, bump) in &plan.bumps {
@@ -286,7 +286,7 @@ fn cmd_bump(dry_run: bool, archive: bool) -> Result<()> {
   let (config, config_path) = OxrlsConfig::load(&root)?;
   let release_dir = get_release_dir(&root, &config, &config_path);
 
-  let plan = build_release_plan(&workspace, &config, &release_dir)?;
+  let plan = build_release_plan(&workspace, &config, &release_dir, dry_run)?;
 
   if dry_run {
     println!("[DRY RUN] Would apply the following release plan:\n");

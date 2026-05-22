@@ -50,6 +50,7 @@ pub fn build_release_plan(
   workspace: &Workspace,
   config: &OxrlsConfig,
   release_dir: &Path,
+  dry_run: bool,
 ) -> Result<ReleasePlan> {
   // Find all release files
   let release_files = find_release_files(release_dir)?;
@@ -105,7 +106,7 @@ pub fn build_release_plan(
 
     // Apply pre-release tag if the package is in pre-mode
     // When already in pre-release, keep the base version and just increment the counter
-    let mut new_version = if let Some((tag, count)) = resolve_pre_release(pkg_name, config, &mut pre_state, workspace) {
+    let new_version = if let Some((tag, count)) = resolve_pre_release(pkg_name, config, &mut pre_state, workspace) {
       // Strip pre-release suffix, use the base version, then re-apply with new counter
       let base = semver::Version::new(old_version.major, old_version.minor, old_version.patch);
       apply_pre_release(&base, &tag, count)
@@ -133,7 +134,9 @@ pub fn build_release_plan(
   }
 
   // Save pre-state after all bumps (counters are already incremented)
-  pre_state.save(release_dir)?;
+  if !dry_run {
+    pre_state.save(release_dir)?;
+  }
 
   // Apply fixed group constraints — all packages in a fixed group share the same version
   apply_fixed_groups(&mut bumps, workspace, config)?;
@@ -863,7 +866,7 @@ Fix bug."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     let react = plan.bumps.get("@scope/react").unwrap();
@@ -898,7 +901,7 @@ Fix bug."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     assert!(plan.bumps.contains_key("@scope/core"));
     assert!(!plan.bumps.contains_key("@scope/react"));
@@ -921,7 +924,7 @@ Fix transaction mapping bug."#;
     std::fs::write(release_dir.join("calm-blue-fox.md"), content).unwrap();
 
     let config = OxrlsConfig::default();
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     assert_eq!(plan.bumps.len(), 1);
     let bump = plan.bumps.get("@scope/core").unwrap();
@@ -946,7 +949,7 @@ Fix something."#;
     std::fs::write(release_dir.join("bad.md"), content).unwrap();
 
     let config = OxrlsConfig::default();
-    let result = build_release_plan(&workspace, &config, &release_dir);
+    let result = build_release_plan(&workspace, &config, &release_dir, false);
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(err.contains("@scope/missing"));
@@ -976,7 +979,7 @@ Add feature."#;
     std::fs::write(release_dir.join("file2.md"), content2).unwrap();
 
     let config = OxrlsConfig::default();
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     let bump = plan.bumps.get("@scope/core").unwrap();
     assert_eq!(bump.new_version, semver::Version::new(1, 3, 0)); // minor wins over patch
@@ -998,7 +1001,7 @@ Fix bug."#;
     std::fs::write(release_dir.join("test.md"), content).unwrap();
 
     let config = OxrlsConfig::default();
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     // Dry run should not modify files
     apply_release_plan(&workspace, &plan, &config, &release_dir, true, false).unwrap();
@@ -1031,7 +1034,7 @@ Fix bug."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     // Should be 1.2.4-beta.1 instead of 1.2.4
@@ -1045,7 +1048,7 @@ Fix bug."#;
 Fix another bug."#;
     std::fs::write(release_dir.join("test2.md"), content2).unwrap();
 
-    let plan2 = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan2 = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
     let core2 = plan2.bumps.get("@scope/core").unwrap();
     assert_eq!(core2.new_version.to_string(), "1.2.3-beta.2");
   }
@@ -1073,7 +1076,7 @@ Breaking change."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     // Major bump from 1.2.3 → 2.0.0-rc.1
@@ -1105,7 +1108,7 @@ Multiple changes."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     assert_eq!(core.new_version.to_string(), "1.2.3-beta.1");
@@ -1149,7 +1152,7 @@ Fix bug."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     // Both packages should be bumped to the same version (based on highest old version)
     let core = plan.bumps.get("@scope/core").unwrap();
@@ -1196,7 +1199,7 @@ Breaking change."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     let utils = plan.bumps.get("@scope/utils").unwrap();
@@ -1234,7 +1237,7 @@ Add feature."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     let react = plan.bumps.get("@scope/react").unwrap();
@@ -1263,7 +1266,7 @@ Fix bug."#;
     std::fs::write(release_dir.join("test.md"), content).unwrap();
 
     let config = OxrlsConfig::default();
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     // Check that @scope/react's dependency on @scope/core is flagged for update
     let has_core_update = plan
@@ -1318,7 +1321,7 @@ Completely rewritten core logic."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     let utils = plan.bumps.get("@scope/utils").unwrap();
     let tools = plan.bumps.get("@scope/tools").unwrap();
@@ -1363,7 +1366,7 @@ Mixed changes for pre-release and stable."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     // Verify both packages are in the plan
     assert!(plan.bumps.contains_key("@scope/core"));
