@@ -7,6 +7,7 @@ pub mod changelog;
 pub mod cli;
 pub mod config;
 pub mod error;
+pub mod init_wizard;
 pub mod package_json;
 pub mod premode;
 pub mod release;

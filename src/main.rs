@@ -7,18 +7,24 @@ use inquire::{MultiSelect, Select, Text};
 use vp_release::bump::{apply_release_plan, build_release_plan, find_release_files, print_plan};
 use vp_release::cli::{Cli, Commands, PreAction};
 use vp_release::config::{OxrlsConfig, PreModeEntry};
+use vp_release::init_wizard::run_init_wizard;
 use vp_release::error::Result;
+use vp_release::package_json::PackageJson;
 use vp_release::premode::PreState;
 use vp_release::release::{publish_manifest, ReleaseManifest};
 use vp_release::release_file::{create_release_file, parse_release_file, BumpType};
-use vp_release::workspace::{find_workspace_root, load_workspace};
+use vp_release::workspace::{find_workspace_root, load_workspace, Workspace};
 use glob::Pattern;
 
 fn main() {
   let cli = Cli::parse();
 
   let result = match &cli.command {
-    Commands::Init { force, release_dir } => cmd_init(*force, release_dir.as_deref()),
+    Commands::Init {
+      force,
+      release_dir,
+      non_interactive,
+    } => cmd_init(*force, release_dir.as_deref(), *non_interactive),
     Commands::New {
       packages,
       summary,
@@ -48,15 +54,44 @@ fn main() {
   }
 }
 
-fn cmd_init(force: bool, release_dir: Option<&str>) -> Result<()> {
+fn cmd_init(
+  force: bool,
+  release_dir: Option<&str>,
+  non_interactive: bool,
+) -> Result<()> {
   let cwd = std::env::current_dir().map_err(vp_release::error::OxrlsError::Io)?;
 
-  // Determine config path
+  // Detect workspace for package lists
+  let root = find_workspace_root(Path::new(".")).unwrap_or_else(|_| cwd.clone());
+  let workspace = load_workspace(&root).unwrap_or_else(|_| {
+    // If no workspace found, create a minimal one from just the root
+    Workspace {
+      root: root.clone(),
+      root_package_json: PackageJson {
+        name: None,
+        version: None,
+        private: None,
+        dependencies: None,
+        dev_dependencies: None,
+        peer_dependencies: None,
+        optional_dependencies: None,
+        extra: std::collections::BTreeMap::new(),
+      },
+      packages: IndexMap::new(),
+    }
+  });
+  let is_monorepo = workspace.packages.len() > 1;
+
   let config_path = cwd.join("oxrls.json");
 
   let mut config = OxrlsConfig::default();
+
   if let Some(dir) = release_dir {
     config.release_dir = dir.to_string();
+  }
+
+  if !non_interactive {
+    run_init_wizard(&mut config, &workspace, is_monorepo)?;
   }
 
   // Write config
@@ -85,6 +120,8 @@ fn cmd_init(force: bool, release_dir: Option<&str>) -> Result<()> {
   println!("\noxrls is ready! Use `oxrls new` to create a release file.");
   Ok(())
 }
+
+
 
 fn get_release_dir(root: &Path, config: &OxrlsConfig, config_path: &Path) -> PathBuf {
   if !config_path.as_os_str().is_empty() {

@@ -5,10 +5,28 @@
 ### `oxrls init`
 
 ```bash
-oxrls init [--force] [--release-dir <DIR>]
+oxrls init [OPTIONS]
 ```
 
-Creates `oxrls.json` with defaults, a `.oxrls/` directory, and a README inside it.
+**Options:**
+
+| Option | Description |
+|--------|-------------|
+| `--force` | Overwrite existing config |
+| `--release-dir <DIR>` | Custom release directory (default: `.oxrls`) |
+| `--non-interactive` | Skip the config wizard and use defaults |
+
+**Interactive mode** (default): walks you through all config options step by step:
+
+1. Release directory
+2. Changelog preferences (per-package, global, or none)
+3. Base branch
+4. Internal dependency update strategy
+5. Default npm access
+6. Linked package groups (monorepo only)
+7. Fixed package groups (monorepo only)
+
+**Non-interactive mode** (`--non-interactive`): creates config with defaults, same as before.
 
 ---
 
