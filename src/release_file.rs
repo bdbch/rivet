@@ -343,31 +343,10 @@ pub fn archive_release_file(path: &Path, archive_dir: &Path) -> Result<()> {
 /// and stable packages — the stable entries are removed so they don't
 /// repeat on the next bump, while pre-release entries are kept.
 pub fn strip_stable_entries(path: &Path, is_pre_release: impl Fn(&str) -> bool) -> Result<()> {
-  // Read and parse the current file
-  let content = std::fs::read_to_string(path)
-    .map_err(|e| OxrlsError::ReleaseFile(format!("Failed to read {}: {}", path.display(), e)))?;
-  
-  let rf = parse_release_content(&content, path)?;
-  
-  // Filter to only keep pre-release entries
-  let releases: Vec<(String, BumpType)> = rf
-    .releases
-    .iter()
-    .filter(|(pkg_name, _)| is_pre_release(pkg_name))
-    .map(|(k, v)| (k.clone(), *v))
-    .collect();
-  let filtered: IndexMap<String, BumpType> = releases.into_iter().collect();
-  
-  if filtered.is_empty() {
-    // No pre-release entries left — consume the file
-    consume_release_file(path)
-  } else if filtered.len() == rf.releases.len() {
-    // All entries are pre-release — keep as-is
-    Ok(())
-  } else {
-    // Write back with only pre-release entries
-    write_filtered_release_file(path, &filtered, &rf.summary)
-  }
+  // The changelog already captured the content during Phase 3.
+  // Any remaining entries would just cause re-processing on the next bump,
+  // so consume the file regardless of which entries it contains.
+  consume_release_file(path)
 }
 
 /// Write a release file with filtered entries while preserving the original file path.

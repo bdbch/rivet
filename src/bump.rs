@@ -658,7 +658,7 @@ pub fn apply_release_plan(
       for rf_path in &bump.release_files {
         if pre_release_files.contains(rf_path) {
           crate::release_file::strip_stable_entries(rf_path, is_pre)?;
-          println!("  {} (stripped — keeping pre-release entries)", rf_path.display());
+          println!("  {} (consumed — pre-release entries already in changelog)", rf_path.display());
           continue;
         }
         crate::release_file::archive_release_file(rf_path, &archive_dir)?;
@@ -672,7 +672,7 @@ pub fn apply_release_plan(
         if pre_release_files.contains(rf_path) {
           if consumed.insert(rf_path.clone()) {
             crate::release_file::strip_stable_entries(rf_path, is_pre)?;
-            println!("  {} (stripped — keeping pre-release entries)", rf_path.display());
+            println!("  {} (consumed — pre-release entries already in changelog)", rf_path.display());
           }
           continue;
         }
@@ -1380,20 +1380,7 @@ Mixed changes for pre-release and stable."#;
     // Apply the release plan
     apply_release_plan(&workspace, &plan, &config, &release_dir, false, false).unwrap();
 
-    // The release file should still exist (because of @scope/core being pre-release)
-    assert!(rf_path.exists(), "Release file should still exist for pre-release package");
-
-    // Parse it — it should ONLY contain @scope/core, not @scope/react
-    let rf = crate::release_file::parse_release_file(&rf_path).unwrap();
-    assert!(
-      rf.releases.contains_key("@scope/core"),
-      "Should still contain pre-release package"
-    );
-    assert!(
-      !rf.releases.contains_key("@scope/react"),
-      "Should NOT contain stable package — it should have been stripped"
-    );
-    // Summary should be preserved
-    assert!(!rf.summary.is_empty());
+    // The release file should be consumed — changelog already captured the content
+    assert!(!rf_path.exists(), "Release file should be consumed as pre-release entries were already captured");
   }
 }
