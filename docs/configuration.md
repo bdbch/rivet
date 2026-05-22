@@ -1,6 +1,6 @@
 # Configuration
 
-oxrls looks for a config file named `oxrls.json` or `.oxrls.json` in the project root or any parent directory.
+oxrls looks for `oxrls.json` or `.oxrls.json` in the project root or any parent directory.
 
 ## Default config
 
@@ -9,9 +9,14 @@ oxrls looks for a config file named `oxrls.json` or `.oxrls.json` in the project
   "$schema": "https://oxrelease.dev/schema.json",
   "releaseDir": ".oxrls",
   "changelog": true,
+  "generatePackagesChangelog": true,
+  "generateGlobalChangelog": false,
   "updateInternalDependencies": "patch",
   "baseBranch": "main",
-  "access": "public"
+  "access": "public",
+  "fixed": [],
+  "linked": [],
+  "preMode": []
 }
 ```
 
@@ -21,102 +26,133 @@ oxrls looks for a config file named `oxrls.json` or `.oxrls.json` in the project
 
 Default: `".oxrls"`
 
-The directory where pending release files are stored (relative to the project root).
-
 ```json
-{
-  "releaseDir": ".oxrls"
-}
+{ "releaseDir": ".oxrls" }
 ```
 
----
-
-### `changelog`
+### `changelog` (legacy)
 
 Default: `true`
 
-Whether to generate and update `CHANGELOG.md` files when bumping.
+Setting this to `false` disables all changelog generation, regardless of the new flags below.
+
+### `generatePackagesChangelog`
+
+Default: `true`
+
+Generate individual `CHANGELOG.md` files per workspace package.
 
 ```json
-{
-  "changelog": false
-}
+{ "generatePackagesChangelog": false }
 ```
 
----
+### `generateGlobalChangelog`
+
+Default: `false`
+
+Generate a single `CHANGELOG.md` at the project root aggregating all package changes.
+
+```json
+{ "generateGlobalChangelog": true }
+```
+
+**Solo repo fallback**: if the workspace has only one package and per-package changelogs are enabled, oxrls automatically generates a global changelog instead.
 
 ### `updateInternalDependencies`
 
 Default: `"patch"`
 
-Controls when internal workspace dependency ranges are updated when a dependency package is bumped.
+Controls when internal dependency ranges are updated:
 
 | Value | Behavior |
 |-------|----------|
 | `"always"` | Always update ranges |
-| `"patch"` | Update when the dependency got at least a patch bump |
-| `"minor"` | Update only for minor or major bumps |
-| `"major"` | Update only for major bumps |
-| `"never"` | Never update ranges |
-
-```json
-{
-  "updateInternalDependencies": "minor"
-}
-```
-
----
+| `"patch"` | Update when dependency got at least a patch |
+| `"minor"` | Update only for minor or major |
+| `"major"` | Update only for major |
+| `"never"` | Never update |
 
 ### `baseBranch`
 
 Default: `"main"`
 
-The base branch used for branching and release metadata.
-
-```json
-{
-  "baseBranch": "main"
-}
-```
-
----
-
 ### `access`
 
-Default: `"public""
+Default: `"public"`
 
-The npm access level for publishing. Either `"public"` or `"restricted"`.
+Either `"public"` or `"restricted"`. Overridable per-package via `publishConfig.access` in `package.json`.
+
+### `fixed`
+
+Default: `[]`
+
+Groups of packages that **always share the same version**. When any member is bumped, all members get bumped to the same new version (highest old version + max bump type).
+
+Supports glob patterns and `!` negation:
 
 ```json
 {
-  "access": "restricted"
+  "fixed": [
+    ["@scope/design-system", "@scope/theme"],
+    ["@scope/*", "!@scope/standalone"]
+  ]
 }
 ```
 
-## Config file lookup
+### `linked`
 
-oxrls searches for config in this order:
+Default: `[]`
 
-1. `oxrls.json` in the current directory or any parent
-2. `.oxrls.json` in the current directory or any parent
-3. If neither is found, defaults are used
+Groups of packages that **share the same bump type**. When a member receives a bump, all members in the group get the highest bump type found in the group.
+
+Supports glob patterns and `!` negation:
+
+```json
+{
+  "linked": [
+    ["@scope/hooks", "@scope/utils"]
+  ]
+}
+```
+
+### `preMode`
+
+Default: `[]`
+
+Pre-release mode configuration. Packages listed here produce pre-release versions with a tag suffix.
+
+```json
+{
+  "preMode": [
+    {
+      "tag": "beta",
+      "packages": ["@scope/experimental-*", "@scope/new-feature"]
+    },
+    {
+      "tag": "alpha",
+      "packages": ["@scope/early-access-*"]
+    }
+  ]
+}
+```
+
+**Per-package granularity**: different packages can have different pre-release tags. A package can only be in one pre-mode at a time.
+
+**Version behavior:**
+| Scenario | Result |
+|----------|--------|
+| `1.2.3` + patch + beta | `1.2.4-beta.1` |
+| `1.2.3` + major + rc | `2.0.0-rc.1` |
+| Bump again in beta | `1.2.4-beta.2` |
+| Exit pre-mode | `1.2.4` (normal) |
+| Migrate beta → rc | counter resets → `2.0.0-rc.1` |
+
+**State file**: `.oxrls/pre.json` tracks per-package counters. Auto-managed during `oxrls bump`.
 
 ## Creating config
 
-Use `oxrls init` to create a config file with defaults:
-
 ```bash
 oxrls init
-```
-
-Override defaults:
-
-```bash
 oxrls init --release-dir .changes
-```
-
-Force overwrite an existing config:
-
-```bash
-oxrls init --force
+oxrls init --force           # overwrite existing
 ```

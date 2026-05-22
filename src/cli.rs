@@ -53,4 +53,49 @@ pub enum Commands {
     #[arg(long, default_value_t = false)]
     archive: bool,
   },
+
+  /// Publish all packages from the last bump to npm
+  Release {
+    /// Show what would be published without publishing
+    #[arg(long, default_value_t = false)]
+    dry_run: bool,
+
+    /// Override the npm dist-tag (default: "latest" or pre-release tag)
+    #[arg(long)]
+    tag: Option<String>,
+  },
+
+  /// Manage pre-release mode for packages (omit subcommand for interactive mode)
+  Pre {
+    #[command(subcommand)]
+    action: Option<PreAction>,
+  },
+}
+
+#[derive(Subcommand, Debug)]
+pub enum PreAction {
+  /// Enter pre-release mode for packages with the given tag
+  Enter {
+    /// Pre-release tag (e.g., "beta", "alpha", "rc")
+    #[arg(long)]
+    tag: String,
+
+    /// Package name or glob pattern (repeatable)
+    #[arg(long = "package", short = 'p')]
+    packages: Vec<String>,
+
+    /// Force migration (move package from one tag to another)
+    #[arg(long, default_value_t = false)]
+    force: bool,
+  },
+
+  /// Exit pre-release mode for packages
+  Exit {
+    /// Package name or glob pattern (repeatable)
+    #[arg(long = "package", short = 'p')]
+    packages: Vec<String>,
+  },
+
+  /// Show pre-release status
+  Status,
 }

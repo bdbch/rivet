@@ -35,6 +35,15 @@ pub enum Access {
   Restricted,
 }
 
+impl std::fmt::Display for Access {
+  fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+    match self {
+      Access::Public => write!(f, "public"),
+      Access::Restricted => write!(f, "restricted"),
+    }
+  }
+}
+
 /// Schema for oxrls.json config.
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct OxrlsConfig {
@@ -77,6 +86,21 @@ pub struct OxrlsConfig {
   /// packages in that group receive the same bump type.
   #[serde(default)]
   pub linked: Vec<Vec<String>>,
+
+  /// Pre-release mode configuration.
+  /// Packages listed here will produce pre-release versions (e.g., `2.0.0-beta.1`).
+  #[serde(default)]
+  pub pre_mode: Vec<PreModeEntry>,
+}
+
+/// A single pre-release mode entry.
+#[derive(Debug, Clone, Serialize, Deserialize, PartialEq)]
+pub struct PreModeEntry {
+  /// The pre-release tag (e.g., "beta", "alpha", "rc").
+  pub tag: String,
+
+  /// Package name patterns (supports glob and `!` negation, same as `fixed`/`linked`).
+  pub packages: Vec<String>,
 }
 
 /// Information about which changelog mode(s) are active for a given run.
@@ -125,6 +149,7 @@ impl Default for OxrlsConfig {
       access: Access::Public,
       fixed: vec![],
       linked: vec![],
+      pre_mode: vec![],
     }
   }
 }

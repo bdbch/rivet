@@ -5,6 +5,8 @@ use crate::changelog::{
 use crate::config::{InternalDepUpdate, OxrlsConfig};
 use crate::error::{OxrlsError, Result};
 use crate::package_json::PackageJson;
+use crate::premode::{apply_pre_release, resolve_pre_release, PreState};
+use crate::release::ReleaseManifest;
 use crate::release_file::{consume_release_file, parse_release_file, BumpType, ReleaseFile};
 use crate::version_bump::bump_version;
 use crate::workspace::{Workspace, WorkspacePackage};
@@ -91,6 +93,7 @@ pub fn build_release_plan(
 
   // Compute new versions
   let mut bumps: IndexMap<String, PlannedBump> = IndexMap::new();
+  let mut pre_state = PreState::load(release_dir)?;
 
   for (pkg_name, (bump_type, refs)) in &merged_bumps {
     let pkg = workspace
@@ -99,7 +102,12 @@ pub fn build_release_plan(
       .ok_or_else(|| OxrlsError::Bump(format!("Package '{}' not found in workspace", pkg_name)))?;
 
     let old_version = pkg.package_json.semver_version()?;
-    let new_version = bump_version(&old_version, *bump_type);
+    let mut new_version = bump_version(&old_version, *bump_type);
+
+    // Apply pre-release tag if the package is in pre-mode
+    if let Some((tag, count)) = resolve_pre_release(pkg_name, config, &mut pre_state, workspace) {
+      new_version = apply_pre_release(&new_version, &tag, count);
+    }
 
     // Collect summaries from the release files that reference this package
     let summaries: Vec<String> = refs.iter().map(|rf| rf.summary.clone()).collect();
@@ -118,6 +126,9 @@ pub fn build_release_plan(
       },
     );
   }
+
+  // Save pre-state after all bumps (counters are already incremented)
+  pre_state.save(release_dir)?;
 
   // Apply fixed group constraints — all packages in a fixed group share the same version
   apply_fixed_groups(&mut bumps, workspace, config)?;
@@ -268,23 +279,80 @@ fn apply_fixed_groups(
     // Compute the shared new version
     let shared_new_version = bump_version(&highest_old_version, max_bump);
 
+    // Collect summaries from the packages that were directly bumped in this group
+    let direct_summaries: Vec<String> = group_bumps
+      .iter()
+      .filter(|(name, _, _)| bumps.contains_key(name.as_str()))
+      .flat_map(|(name, _, _)| {
+        bumps
+          .get(name)
+          .map(|b| b.summaries.clone())
+          .unwrap_or_default()
+      })
+      .collect();
+    let direct_release_files: Vec<PathBuf> = group_bumps
+      .iter()
+      .filter(|(name, _, _)| bumps.contains_key(name.as_str()))
+      .flat_map(|(name, _, _)| {
+        bumps
+          .get(name)
+          .map(|b| b.release_files.clone())
+          .unwrap_or_default()
+      })
+      .collect();
+
+    // Snapshot which packages were originally in the bump plan (before we mutate `bumps`)
+    let originally_bumped: std::collections::HashSet<&str> = group_bumps
+      .iter()
+      .filter(|(name, _, _)| bumps.contains_key(name.as_str()))
+      .map(|(name, _, _)| name.as_str())
+      .collect();
+
     // Apply to all group members
-    for (pkg_name, old_ver, bump_type) in &group_bumps {
+    for (pkg_name, old_ver, _) in &group_bumps {
+      let existing_summaries = bumps
+        .get(pkg_name)
+        .map(|b| b.summaries.clone())
+        .unwrap_or_default();
+      let existing_release_files = bumps
+        .get(pkg_name)
+        .map(|b| b.release_files.clone())
+        .unwrap_or_default();
+
+      // If this package wasn't directly bumped (no release file entries),
+      // derive the summary from what was bumped in the group
+      let summaries = if existing_summaries.is_empty() {
+        let deps: Vec<&str> = originally_bumped
+          .iter()
+          .filter(|name| **name != *pkg_name)
+          .copied()
+          .collect();
+        if !deps.is_empty() {
+          vec![format!("Updated with {}.", deps.join(", "))]
+        } else if !direct_summaries.is_empty() {
+          direct_summaries.clone()
+        } else {
+          vec!["Updated to match fixed group version.".to_string()]
+        }
+      } else {
+        existing_summaries
+      };
+
+      let release_files = if existing_release_files.is_empty() {
+        direct_release_files.clone()
+      } else {
+        existing_release_files
+      };
+
       bumps.insert(
         pkg_name.clone(),
         PlannedBump {
           package_name: pkg_name.clone(),
           old_version: old_ver.clone(),
           new_version: shared_new_version.clone(),
-          bump_type: *bump_type,
-          summaries: bumps
-            .get(pkg_name)
-            .map(|b| b.summaries.clone())
-            .unwrap_or_default(),
-          release_files: bumps
-            .get(pkg_name)
-            .map(|b| b.release_files.clone())
-            .unwrap_or_default(),
+          bump_type: max_bump,
+          summaries,
+          release_files,
         },
       );
     }
@@ -510,7 +578,7 @@ pub fn apply_release_plan(
       };
 
       let section = generate_changelog_section(&entry);
-      update_changelog(&changelog_path, &bump.package_name, &section)?;
+      update_changelog(&changelog_path, &section)?;
     }
   }
 
@@ -535,6 +603,10 @@ pub fn apply_release_plan(
       update_global_changelog(&global_changelog_path, &global_section)?;
     }
   }
+
+  // Save the release manifest for `oxrls release`
+  let manifest = ReleaseManifest::from_bumps(&plan.bumps);
+  manifest.save(release_dir)?;
 
   // Phase 4: Consume release files
   if archive {
@@ -885,6 +957,112 @@ Fix bug."#;
   }
 
   #[test]
+  fn test_pre_release_version_in_plan() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = create_test_workspace(&tmp);
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    let content = r#"---
+"@scope/core": patch
+---
+
+Fix bug."#;
+    std::fs::write(release_dir.join("test.md"), content).unwrap();
+
+    let config = OxrlsConfig {
+      pre_mode: vec![crate::config::PreModeEntry {
+        tag: "beta".to_string(),
+        packages: vec!["@scope/core".to_string()],
+      }],
+      ..Default::default()
+    };
+
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    let core = plan.bumps.get("@scope/core").unwrap();
+    // Should be 1.2.4-beta.1 instead of 1.2.4
+    assert_eq!(core.new_version.to_string(), "1.2.4-beta.1");
+
+    // Second bump should increment the counter
+    let content2 = r#"---
+"@scope/core": patch
+---
+
+Fix another bug."#;
+    std::fs::write(release_dir.join("test2.md"), content2).unwrap();
+
+    let plan2 = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let core2 = plan2.bumps.get("@scope/core").unwrap();
+    assert_eq!(core2.new_version.to_string(), "1.2.4-beta.2");
+  }
+
+  #[test]
+  fn test_pre_release_major_version() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = create_test_workspace(&tmp);
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    let content = r#"---
+"@scope/core": major
+---
+
+Breaking change."#;
+    std::fs::write(release_dir.join("test.md"), content).unwrap();
+
+    let config = OxrlsConfig {
+      pre_mode: vec![crate::config::PreModeEntry {
+        tag: "rc".to_string(),
+        packages: vec!["@scope/core".to_string()],
+      }],
+      ..Default::default()
+    };
+
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    let core = plan.bumps.get("@scope/core").unwrap();
+    // Major bump from 1.2.3 → 2.0.0-rc.1
+    assert_eq!(core.new_version.to_string(), "2.0.0-rc.1");
+    assert_eq!(core.old_version.to_string(), "1.2.3");
+  }
+
+  #[test]
+  fn test_pre_release_does_not_affect_other_packages() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = create_test_workspace(&tmp);
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    let content = r#"---
+"@scope/core": patch
+"@scope/react": minor
+---
+
+Multiple changes."#;
+    std::fs::write(release_dir.join("test.md"), content).unwrap();
+
+    let config = OxrlsConfig {
+      pre_mode: vec![crate::config::PreModeEntry {
+        tag: "beta".to_string(),
+        packages: vec!["@scope/core".to_string()],
+      }],
+      ..Default::default()
+    };
+
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    let core = plan.bumps.get("@scope/core").unwrap();
+    assert_eq!(core.new_version.to_string(), "1.2.4-beta.1");
+
+    let react = plan.bumps.get("@scope/react").unwrap();
+    assert_eq!(react.new_version.to_string(), "1.1.0"); // no pre-release
+  }
+
+  #[test]
   fn test_fixed_group_constraint() {
     let tmp = TempDir::new().unwrap();
     let _workspace = create_test_workspace(&tmp);
@@ -1041,5 +1219,66 @@ Fix bug."#;
       .iter()
       .any(|u| u.dep_name == "@scope/core" && u.dependent_package_name == "@scope/react");
     assert!(has_core_update);
+  }
+
+  #[test]
+  fn test_fixed_group_summary_does_not_chain() {
+    // When a fixed group pulls in multiple packages, the generated summary
+    // for each package should only list the directly-bumped ones, not a growing chain.
+    let tmp = TempDir::new().unwrap();
+    let _workspace = create_test_workspace(&tmp);
+
+    // Add two more packages to the fixed group
+    let pkg_a = serde_json::json!({ "name": "@scope/utils", "version": "0.1.0" });
+    let pkg_b = serde_json::json!({ "name": "@scope/tools", "version": "0.1.0" });
+    std::fs::create_dir_all(tmp.path().join("packages/utils")).unwrap();
+    std::fs::create_dir_all(tmp.path().join("packages/tools")).unwrap();
+    std::fs::write(
+      tmp.path().join("packages/utils/package.json"),
+      serde_json::to_string_pretty(&pkg_a).unwrap(),
+    )
+    .unwrap();
+    std::fs::write(
+      tmp.path().join("packages/tools/package.json"),
+      serde_json::to_string_pretty(&pkg_b).unwrap(),
+    )
+    .unwrap();
+
+    let workspace = load_workspace(tmp.path()).unwrap();
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    // Only core has a release file — utils and tools are pulled in by the fixed group
+    let content = r#"---
+"@scope/core": minor
+---
+
+Completely rewritten core logic."#;
+    std::fs::write(release_dir.join("test.md"), content).unwrap();
+
+    let config = OxrlsConfig {
+      fixed: vec![vec![
+        "@scope/core".to_string(),
+        "@scope/utils".to_string(),
+        "@scope/tools".to_string(),
+      ]],
+      ..Default::default()
+    };
+
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    let utils = plan.bumps.get("@scope/utils").unwrap();
+    let tools = plan.bumps.get("@scope/tools").unwrap();
+
+    // Both should list ONLY @scope/core, not a growing chain
+    assert_eq!(
+      utils.summaries,
+      vec!["Updated with @scope/core.".to_string()]
+    );
+    assert_eq!(
+      tools.summaries,
+      vec!["Updated with @scope/core.".to_string()]
+    );
   }
 }

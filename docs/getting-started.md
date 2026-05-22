@@ -1,22 +1,16 @@
 # Getting Started with oxrls
 
-**oxrls** (short for *oxrelease*) is a Rust-powered Changesets-like release CLI for JavaScript/TypeScript monorepos. It helps you manage version bumps, changelogs, and internal dependency updates in a deterministic, safe way.
+**oxrls** (short for *oxrelease*) is a Rust-powered release management CLI for JavaScript/TypeScript monorepos. It handles version bumps, changelogs, internal dependency updates, pre-release versions, and npm publishing.
 
 ## Installation
 
-oxrls is built as part of the `vp-release` crate. Build the binary:
+Build from source:
 
 ```bash
 cargo build --release
 ```
 
-The binary is placed at `target/release/oxrls`. You can use it directly:
-
-```bash
-./target/release/oxrls --help
-```
-
-Or install it to your PATH:
+The binary is at `target/release/oxrls`. Install to PATH:
 
 ```bash
 cargo install --path .
@@ -24,121 +18,80 @@ cargo install --path .
 
 ## Quick start
 
-### 1. Initialize oxrls in your project
+### 1. Initialize
 
 ```bash
 oxrls init
 ```
 
-This creates:
-
-- `oxrls.json` — configuration file with sensible defaults
-- `.oxrls/` — directory for pending release files
-- `.oxrls/README.md` — informational readme
+Creates `oxrls.json` with defaults and a `.oxrls/` directory.
 
 ### 2. Create a release file
 
-Interactive mode:
-
 ```bash
+# Interactive — select packages, choose bump type, write summary
 oxrls new
-```
 
-This prompts you to:
-1. Select which packages changed (multi-select)
-2. Choose the bump type for each (patch / minor / major)
-3. Enter a summary of the change
-4. Optionally add details
-
-Non-interactive mode:
-
-```bash
+# Non-interactive
 oxrls new --package @scope/core:patch --summary "Fix transaction mapping bug"
-```
 
-Multiple packages:
-
-```bash
+# Multiple packages
 oxrls new \
   --package @scope/core:patch \
   --package @scope/react:minor \
   --summary "Improve editor behavior"
 ```
 
-### 3. Check pending releases
+### 3. Preview and apply
 
 ```bash
-oxrls status
+oxrls status               # shows pending release files and calculated bumps
+oxrls bump --dry-run        # preview without writing
+oxrls bump                  # apply version bumps, update deps, generate changelogs
 ```
 
-Shows all pending release files and the calculated version bumps.
-
-### 4. Apply the release
-
-Dry run first (recommended):
+### 4. Publish
 
 ```bash
-oxrls bump --dry-run
+oxrls release               # publish all bumped packages to npm
+oxrls release --dry-run     # preview without publishing
+oxrls release --tag beta    # publish with a custom npm dist-tag
 ```
 
-Then apply:
+## Example workflow
 
 ```bash
-oxrls bump
-```
-
-This:
-1. Updates `package.json` versions for affected packages
-2. Updates internal dependency ranges in dependent packages
-3. Writes or appends `CHANGELOG.md` entries
-4. Removes consumed release files
-
-### Complete workflow example
-
-```bash
-# Initialize
 oxrls init
 
-# Create a release
+# Record changes
 oxrls new --package @scope/core:patch --summary "Fix transaction mapping bug"
 
-# Review
+# Apply
 oxrls status
-
-# Apply (dry run first)
 oxrls bump --dry-run
 oxrls bump
+
+# Publish
+oxrls release
 ```
 
-## Dry run
+After `oxrls bump`:
+- Package versions are updated in `package.json`
+- Internal dependency ranges are updated
+- `CHANGELOG.md` is created/updated
+- Release files are consumed
+- A `.oxrls/releaseplan.txt` is written for `oxrls release`
 
-Always safe to use `--dry-run` before a real bump:
+## Workspace detection
 
-```bash
-oxrls bump --dry-run
-```
+oxrls auto-detects workspaces from:
 
-This prints the full plan (which packages will be bumped, which dependency ranges will update, which files will be consumed) without writing anything.
-
-## Archiving release files
-
-By default, consumed release files are deleted. To archive them instead:
-
-```bash
-oxrls bump --archive
-```
-
-This moves files to `.oxrls/archive/` instead of deleting them.
-
-## Exit codes
-
-| Code | Meaning |
-|------|---------|
-| 0    | Success |
-| 1    | Error (invalid input, validation failure, etc.) |
+- `package.json` workspaces (array or object format)
+- `pnpm-workspace.yaml`
+- No config = single-package mode (root is the only package)
 
 ## Requirements
 
-- Rust 2021 edition or later
-- A monorepo with `package.json` workspaces or `pnpm-workspace.yaml`
-- Node.js packages with valid `name` and `version` fields in `package.json`
+- Rust 2021 edition
+- Node.js project with `package.json`
+- `npm` for publishing

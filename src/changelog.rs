@@ -52,15 +52,15 @@ pub fn generate_changelog_section(entry: &ChangelogEntry) -> String {
 /// Creates the file if it doesn't exist, prepends the new entry if it does.
 pub fn update_changelog(
   changelog_path: &Path,
-  package_name: &str,
   new_section: &str,
 ) -> Result<()> {
+  // Always use # Changelog as the top-level title
   let content = if changelog_path.exists() {
     let existing = std::fs::read_to_string(changelog_path)
       .map_err(|e| OxrlsError::Changelog(format!("Failed to read changelog: {}", e)))?;
     format!("{}\n\n{}", new_section, existing)
   } else {
-    format!("# {}\n\n{}", package_name, new_section)
+    format!("# Changelog\n\n{}", new_section)
   };
 
   // Ensure parent directory exists
