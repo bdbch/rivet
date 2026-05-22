@@ -72,7 +72,11 @@ pub fn update_changelog(
   let content = if changelog_path.exists() {
     let existing = std::fs::read_to_string(changelog_path)
       .map_err(|e| OxrlsError::Changelog(format!("Failed to read changelog: {}", e)))?;
-    format!("{}\n\n{}", new_section, existing)
+    let body = existing
+      .strip_prefix("# Changelog\n\n")
+      .or_else(|| existing.strip_prefix("# Changelog\n"))
+      .unwrap_or(&existing);
+    format!("# Changelog\n\n{}\n\n{}", new_section, body.trim())
   } else {
     format!("# Changelog\n\n{}", new_section)
   };
@@ -190,7 +194,11 @@ pub fn update_global_changelog(
   let content = if changelog_path.exists() {
     let existing = std::fs::read_to_string(changelog_path)
       .map_err(|e| OxrlsError::Changelog(format!("Failed to read changelog: {}", e)))?;
-    format!("{}\n\n{}", new_section, existing)
+    let body = existing
+      .strip_prefix("# Changelog\n\n")
+      .or_else(|| existing.strip_prefix("# Changelog\n"))
+      .unwrap_or(&existing);
+    format!("# Changelog\n\n{}\n\n{}", new_section, body.trim())
   } else {
     format!("# Changelog\n\n{}", new_section)
   };
