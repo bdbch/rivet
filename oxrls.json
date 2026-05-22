@@ -9,5 +9,12 @@
   "access": "public",
   "fixed": [],
   "linked": [],
-  "pre_mode": []
+  "pre_mode": [
+    {
+      "tag": "alpha",
+      "packages": [
+        "oxrls"
+      ]
+    }
+  ]
 }
