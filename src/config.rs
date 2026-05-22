@@ -226,7 +226,15 @@ impl OxrlsConfig {
   /// Find the config dir (the release_dir relative to config file location or cwd).
   pub fn release_dir_abs(&self, config_path: &Path) -> PathBuf {
     let base = config_path.parent().unwrap_or_else(|| Path::new("."));
-    base.join(&self.release_dir)
+    // If the config is already inside the release directory, use the config's parent directly.
+    // Otherwise, join the release_dir relative to the config's parent.
+    let release_path = base.join(&self.release_dir);
+    if release_path == base {
+      // Config is inside release dir — don't double-join
+      base.to_path_buf()
+    } else {
+      release_path
+    }
   }
 
   /// Write config to a file.
