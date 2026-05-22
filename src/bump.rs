@@ -606,17 +606,17 @@ pub fn apply_release_plan(
 
   // Phase 4: Consume release files
   // Build a set of package names that are in pre-release mode
-  let mut pre_release_pkgs: HashSet<&str> = HashSet::new();
+  let mut pre_release_pkgs: HashSet<String> = HashSet::new();
   for (_name, bump) in &plan.bumps {
     if !bump.new_version.pre.as_str().is_empty() {
-      pre_release_pkgs.insert(bump.package_name.as_str());
+      pre_release_pkgs.insert(bump.package_name.clone());
     }
   }
 
   // Collect release files that touch at least one pre-release package
   let mut pre_release_files: HashSet<PathBuf> = HashSet::new();
   for (_name, bump) in &plan.bumps {
-    if pre_release_pkgs.contains(bump.package_name.as_str()) {
+    if pre_release_pkgs.contains(&bump.package_name) {
       for rf_path in &bump.release_files {
         pre_release_files.insert(rf_path.clone());
       }
