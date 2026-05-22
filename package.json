@@ -1,6 +1,6 @@
 {
   "name": "@bdbchgg/oxrls",
-  "version": "1.0.0-alpha.1",
+  "version": "1.0.0-alpha.2",
   "ava": {
     "environmentVariables": {
       "OXC_TSCONFIG_PATH": "./__test__/tsconfig.json"
@@ -18,7 +18,7 @@
   "bin": {
     "oxrls": "./bin/oxrls.sh"
   },
-  "description": "Rust-powered release management for JS/TS monorepos \u2014 version bumps, changelogs, pre-release mode, and npm publishing",
+  "description": "Rust-powered release management for JS/TS monorepos — version bumps, changelogs, pre-release mode, and npm publishing",
   "devDependencies": {
     "@emnapi/core": "^1.5.0",
     "@emnapi/runtime": "^1.5.0",

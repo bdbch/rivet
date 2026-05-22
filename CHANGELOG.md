@@ -2,6 +2,18 @@
 
 ## 2026-05-22
 
+### Patch Changes
+
+- **@bdbchgg/oxrls** (v1.0.0-alpha.2): Fix: oxrls status no longer increments pre-release counters
+- **@bdbchgg/oxrls** (v1.0.0-alpha.2): Move config to .oxrls/config.json, fix release_dir_abs for nested config
+- **@bdbchgg/oxrls** (v1.0.0-alpha.2): Fix: dry-run no longer increments pre-release counters
+- **@bdbchgg/oxrls** (v1.0.0-alpha.2): Fix: pre-release keeps base version, only increments counter
+- **@bdbchgg/oxrls** (v1.0.0-alpha.2): Fixed a bug where release files with multiple lines would not be indented correctly on changelogs
+- **@bdbchgg/oxrls** (v1.0.0-alpha.2): Add oxrls check command for CI pipelines
+- **@bdbchgg/oxrls** (v1.0.0-alpha.2): Add hex prefix to release filenames and syncCargoToml config option
+
+## 2026-05-22
+
 ### Major Changes
 
 - **@bdbchgg/oxrls** (v1.0.0-alpha.1): First public release of oxrls — a Rust-powered release CLI for JS/TS monorepos.
