@@ -693,7 +693,7 @@ pub fn print_plan(plan: &ReleasePlan) {
   println!("Bumped packages:");
   for (_name, bump) in &plan.bumps {
     println!(
-      "  {:<width$}  {:>12} ->  {:<12}  ({})",
+      "  {:<width$}  {:>12} →  {:<12}  ({})",
       bump.package_name,
       bump.old_version.to_string(),
       bump.new_version.to_string(),
