@@ -2,7 +2,12 @@
   "schema": "https://oxrelease.dev/schema.json",
   "release_dir": ".oxrls",
   "changelog": true,
+  "generate_packages_changelog": false,
+  "generate_global_changelog": true,
   "update_internal_dependencies": "patch",
   "base_branch": "main",
-  "access": "public"
+  "access": "public",
+  "fixed": [],
+  "linked": [],
+  "pre_mode": []
 }
