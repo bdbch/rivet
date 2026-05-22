@@ -689,16 +689,14 @@ pub fn apply_release_plan(
 
 /// Print the release plan without making changes.
 pub fn print_plan(plan: &ReleasePlan) {
-  let max_name = plan.bumps.values().map(|b| b.package_name.len()).max().unwrap_or(20);
   println!("Bumped packages:");
   for (_name, bump) in &plan.bumps {
     println!(
-      "  {:<width$}  {:>12} →  {:<12}  ({})",
+      "  {}  {} → {}  ({})",
       bump.package_name,
-      bump.old_version.to_string(),
-      bump.new_version.to_string(),
-      bump.bump_type_str(),
-      width = max_name
+      bump.old_version,
+      bump.new_version,
+      bump.bump_type_str()
     );
   }
 

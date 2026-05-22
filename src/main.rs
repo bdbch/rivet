@@ -249,19 +249,20 @@ fn cmd_status() -> Result<()> {
     }
   }
 
+  println!();
+
   // Show calculated bumps
   match build_release_plan(&workspace, &config, &release_dir, true) {
     Ok(plan) => {
-            let max_name = plan.bumps.values().map(|b| b.package_name.len()).max().unwrap_or(20);
+            let _max_name = plan.bumps.values().map(|b| b.package_name.len()).max().unwrap_or(20);
       println!("Calculated bumps:");
       for (_name, bump) in &plan.bumps {
         println!(
-          "  {:<width$}  {:>12} →  {:<12}  ({})",
+          "  {}  {} → {}  ({})",
           bump.package_name,
-          bump.old_version.to_string(),
-          bump.new_version.to_string(),
-          bump.bump_type_str(),
-          width = max_name
+          bump.old_version,
+          bump.new_version,
+          bump.bump_type_str()
         );
       }
       if !plan.internal_dep_updates.is_empty() {
@@ -299,15 +300,13 @@ fn cmd_bump(dry_run: bool, archive: bool) -> Result<()> {
   }
 
   println!("Bumped packages:");
-  let max_name = plan.bumps.values().map(|b| b.package_name.len()).max().unwrap_or(20);
   for (_name, bump) in &plan.bumps {
     println!(
-      "  {:<width$}  {:>12} →  {:<12}  ({})",
+      "  {}  {} → {}  ({})",
       bump.package_name,
-      bump.old_version.to_string(),
-      bump.new_version.to_string(),
-      bump.bump_type_str(),
-      width = max_name
+      bump.old_version,
+      bump.new_version,
+      bump.bump_type_str()
     );
   }
   let plan_clone = plan.clone();

@@ -342,7 +342,7 @@ pub fn archive_release_file(path: &Path, archive_dir: &Path) -> Result<()> {
 /// Used when a mixed release file contains entries for both pre-release
 /// and stable packages — the stable entries are removed so they don't
 /// repeat on the next bump, while pre-release entries are kept.
-pub fn strip_stable_entries(path: &Path, is_pre_release: impl Fn(&str) -> bool) -> Result<()> {
+pub fn strip_stable_entries(path: &Path, _is_pre_release: impl Fn(&str) -> bool) -> Result<()> {
   // The changelog already captured the content during Phase 3.
   // Any remaining entries would just cause re-processing on the next bump,
   // so consume the file regardless of which entries it contains.
