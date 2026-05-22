@@ -1,0 +1,8 @@
+{
+  "schema": "https://oxrelease.dev/schema.json",
+  "release_dir": ".oxrls",
+  "changelog": true,
+  "update_internal_dependencies": "patch",
+  "base_branch": "main",
+  "access": "public"
+}
