@@ -1,8 +1,8 @@
 {
   "pre_versions": {
-    "oxrls": {
+    "@bdbchgg/oxrls": {
       "tag": "alpha",
-      "count": 1
+      "count": 2
     }
   }
 }

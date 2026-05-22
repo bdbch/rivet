@@ -13,7 +13,9 @@
   "pre_mode": [
     {
       "tag": "alpha",
-      "packages": ["oxrls"]
+      "packages": [
+        "@bdbchgg/oxrls"
+      ]
     }
   ]
 }
