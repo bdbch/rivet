@@ -224,16 +224,18 @@ impl OxrlsConfig {
   }
 
   /// Find the config dir (the release_dir relative to config file location or cwd).
+  /// If the config file is already inside the release directory, returns the
+  /// config's parent directory directly to avoid double-joining.
   pub fn release_dir_abs(&self, config_path: &Path) -> PathBuf {
     let base = config_path.parent().unwrap_or_else(|| Path::new("."));
-    // If the config is already inside the release directory, use the config's parent directly.
-    // Otherwise, join the release_dir relative to the config's parent.
-    let release_path = base.join(&self.release_dir);
-    if release_path == base {
-      // Config is inside release dir — don't double-join
+    // If the config's parent directory already has the release_dir name, or if
+    // the release_dir is ".", use the parent directly.
+    if self.release_dir == "." || self.release_dir.is_empty() {
+      base.to_path_buf()
+    } else if base.file_name().and_then(|n| n.to_str()) == Some(self.release_dir.as_str()) {
       base.to_path_buf()
     } else {
-      release_path
+      base.join(&self.release_dir)
     }
   }
 
