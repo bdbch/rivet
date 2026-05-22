@@ -23,6 +23,10 @@ pub enum Commands {
     /// Custom release directory
     #[arg(long)]
     release_dir: Option<String>,
+
+    /// Skip interactive wizard and use defaults
+    #[arg(long, default_value_t = false)]
+    non_interactive: bool,
   },
 
   /// Create a new release file
