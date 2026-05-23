@@ -72,31 +72,6 @@ impl PackageJson {
   }
 }
 
-/// Update a dependency range in the package.json for a given dependency name.
-pub fn update_dependency_range(
-  deps: &mut Option<IndexMap<String, String>>,
-  dep_name: &str,
-  old_version: &semver::Version,
-  new_version: &semver::Version,
-) -> bool {
-  let deps = match deps {
-    Some(d) => d,
-    None => return false,
-  };
-
-  let current_range = match deps.get(dep_name) {
-    Some(r) => r.clone(),
-    None => return false,
-  };
-
-  let new_range = compute_new_range(&current_range, old_version, new_version);
-  if new_range != current_range {
-    deps.insert(dep_name.to_string(), new_range);
-    return true;
-  }
-  false
-}
-
 /// Given a current dependency range like "^1.2.3", "~0.4.0", "workspace:^1.0.0", etc.,
 /// compute the updated range after a version bump.
 pub fn compute_new_range(
@@ -143,22 +118,45 @@ fn compute_simple_range(
 
   // Try to parse the rest as a semver version
   if let Ok(ver) = semver::Version::parse(rest) {
-    // Only update if the old version matches what was specified
-    if ver.major == old_version.major
-      && (prefix == "^" || ver.minor == old_version.minor)
-      && (prefix == "~" || prefix.is_empty() || ver.patch == old_version.patch || prefix == "^")
-    {
+    // Only update if the version in the range corresponds to the old_version:
+    //
+    //   Prefix  |  Condition for "matches this dependency"
+    //   --------+------------------------------------------
+    //   ^       |  Major version matches (caret allows any minor/patch)
+    //   ~       |  Major AND minor match (tilde allows only patch)
+    //   (none)  |  Major AND minor match (exact match on patch too, but
+    //          |   already verified by parsing rest == old_version's string)
+    //   >= etc. |  Major AND minor match (conservative: keep in sync)
+    let version_matches = match prefix {
+      "^" => ver.major == old_version.major,
+      "" | "~" => ver.major == old_version.major && ver.minor == old_version.minor,
+      _ => ver.major == old_version.major && ver.minor == old_version.minor,
+    };
+
+    if version_matches {
       // Construct the new version with the same prefix
       let new_ver_str = format_version_like(rest, new_version);
       return format!("{}{}", prefix, new_ver_str);
     }
   }
 
-  // Fallback: just replace the old version string within the range
+  // Fallback: replace the old version string within the range,
+  // but only when bounded by non-digit characters or string edges
+  // to avoid false positives like replacing "1.2.3" inside "^1.2.30".
   let old_str = old_version.to_string();
-  if trimmed.contains(&old_str) {
-    let new_str = new_version.to_string();
-    return trimmed.replacen(&old_str, &new_str, 1);
+  if let Some(pos) = trimmed.find(&old_str) {
+    let before = &trimmed[..pos];
+    let after = &trimmed[pos + old_str.len()..];
+    let at_start = pos == 0;
+    let at_end = pos + old_str.len() == trimmed.len();
+    let prev_is_non_digit = pos > 0 && !trimmed.as_bytes()[pos - 1].is_ascii_digit();
+    let next_is_non_digit =
+      pos + old_str.len() < trimmed.len()
+        && !trimmed.as_bytes()[pos + old_str.len()].is_ascii_digit();
+    if (at_start || prev_is_non_digit) && (at_end || next_is_non_digit) {
+      let new_str = new_version.to_string();
+      return format!("{}{}{}", before, new_str, after);
+    }
   }
 
   range.to_string()

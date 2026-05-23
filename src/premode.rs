@@ -1,6 +1,5 @@
 use crate::config::OxrlsConfig;
 use crate::error::{OxrlsError, Result};
-use crate::workspace::Workspace;
 use glob::Pattern;
 use serde::{Deserialize, Serialize};
 use std::collections::BTreeMap;
@@ -93,7 +92,6 @@ pub fn resolve_pre_release(
   package_name: &str,
   config: &OxrlsConfig,
   pre_state: &mut PreState,
-  _workspace: &Workspace,
 ) -> Option<(String, u64)> {
   // Check the package against each preMode entry
   for entry in &config.pre_mode {
@@ -101,6 +99,10 @@ pub fn resolve_pre_release(
       if let Ok(pat) = Pattern::new(pattern) {
         pat.matches(package_name)
       } else {
+        eprintln!(
+          "Warning: invalid glob pattern \"{}\" in pre-mode config, falling back to exact match",
+          pattern
+        );
         package_name == pattern
       }
     });
@@ -115,35 +117,26 @@ pub fn resolve_pre_release(
   None
 }
 
-/// Check whether a pre-release version string matches a tag and counter.
-/// Used to detect if a package is already in pre-release state.
-pub fn version_is_pre_release(version: &str) -> Option<(String, u64)> {
-  let v = semver::Version::parse(version).ok()?;
-  if v.pre.is_empty() {
-    return None;
-  }
-  // Parse the pre-release identifiers
-  let parts: Vec<&str> = v.pre.split('.').collect();
-  if parts.len() == 2 {
-    let tag = parts[0].to_string();
-    let count = parts[1].parse::<u64>().ok()?;
-    Some((tag, count))
-  } else {
-    // Just return the tag with counter 0 if we can't parse it
-    Some((v.pre.to_string(), 0))
-  }
-}
-
 /// Apply a pre-release tag and counter to a base version string.
-pub fn apply_pre_release(base_version: &semver::Version, tag: &str, count: u64) -> semver::Version {
+pub fn apply_pre_release(
+  base_version: &semver::Version,
+  tag: &str,
+  count: u64,
+) -> Result<semver::Version> {
   let pre = format!("{}.{}", tag, count);
-  semver::Version {
+  let prerelease = semver::Prerelease::new(&pre).map_err(|e| {
+    OxrlsError::Version(format!(
+      "Invalid pre-release identifier '{}': {}",
+      pre, e
+    ))
+  })?;
+  Ok(semver::Version {
     major: base_version.major,
     minor: base_version.minor,
     patch: base_version.patch,
-    pre: semver::Prerelease::new(&pre).unwrap_or_default(),
+    pre: prerelease,
     build: Default::default(),
-  }
+  })
 }
 
 #[cfg(test)]
@@ -189,42 +182,15 @@ mod tests {
     };
     let mut pre_state = PreState::default();
 
-    // Create a minimal workspace with the right package names
-    let tmp = tempfile::TempDir::new().unwrap();
-    let root_pkg =
-      serde_json::json!({"name": "root", "version": "1.0.0", "workspaces": ["packages/*"]});
-    std::fs::write(
-      tmp.path().join("package.json"),
-      serde_json::to_string_pretty(&root_pkg).unwrap(),
-    )
-    .unwrap();
-    std::fs::create_dir_all(tmp.path().join("packages/core")).unwrap();
-    std::fs::write(
-      tmp.path().join("packages/core/package.json"),
-      serde_json::to_string_pretty(&serde_json::json!({"name": "@scope/core", "version": "1.0.0"}))
-        .unwrap(),
-    )
-    .unwrap();
-    std::fs::create_dir_all(tmp.path().join("packages/react")).unwrap();
-    std::fs::write(
-      tmp.path().join("packages/react/package.json"),
-      serde_json::to_string_pretty(
-        &serde_json::json!({"name": "@scope/react", "version": "1.0.0"}),
-      )
-      .unwrap(),
-    )
-    .unwrap();
-    let workspace = crate::workspace::load_workspace(tmp.path()).unwrap();
-
-    let result = resolve_pre_release("@scope/core", &config, &mut pre_state, &workspace);
+    let result = resolve_pre_release("@scope/core", &config, &mut pre_state);
     assert_eq!(result, Some(("beta".to_string(), 1)));
 
     // Second call increments
-    let result = resolve_pre_release("@scope/core", &config, &mut pre_state, &workspace);
+    let result = resolve_pre_release("@scope/core", &config, &mut pre_state);
     assert_eq!(result, Some(("beta".to_string(), 2)));
 
     // Package not in pre-mode
-    let result = resolve_pre_release("@scope/other", &config, &mut pre_state, &workspace);
+    let result = resolve_pre_release("@scope/other", &config, &mut pre_state);
     assert_eq!(result, None);
   }
 
@@ -239,43 +205,24 @@ mod tests {
     };
     let mut pre_state = PreState::default();
 
-    let tmp = tempfile::TempDir::new().unwrap();
-    let root_pkg =
-      serde_json::json!({"name": "root", "version": "1.0.0", "workspaces": ["packages/*"]});
-    std::fs::write(
-      tmp.path().join("package.json"),
-      serde_json::to_string_pretty(&root_pkg).unwrap(),
-    )
-    .unwrap();
-    std::fs::create_dir_all(tmp.path().join("packages/pre-alpha")).unwrap();
-    std::fs::write(
-      tmp.path().join("packages/pre-alpha/package.json"),
-      serde_json::to_string_pretty(
-        &serde_json::json!({"name": "@scope/pre-alpha", "version": "1.0.0"}),
-      )
-      .unwrap(),
-    )
-    .unwrap();
-    let workspace = crate::workspace::load_workspace(tmp.path()).unwrap();
-
-    let result = resolve_pre_release("@scope/pre-alpha", &config, &mut pre_state, &workspace);
+    let result = resolve_pre_release("@scope/pre-alpha", &config, &mut pre_state);
     assert_eq!(result, Some(("alpha".to_string(), 1)));
 
     // Should not match
-    let result = resolve_pre_release("@scope/other", &config, &mut pre_state, &workspace);
+    let result = resolve_pre_release("@scope/other", &config, &mut pre_state);
     assert_eq!(result, None);
   }
 
   #[test]
   fn test_apply_pre_release() {
     let base = semver::Version::new(2, 0, 0);
-    let result = apply_pre_release(&base, "beta", 1);
+    let result = apply_pre_release(&base, "beta", 1).unwrap();
     assert_eq!(result.to_string(), "2.0.0-beta.1");
 
-    let result = apply_pre_release(&base, "beta", 3);
+    let result = apply_pre_release(&base, "beta", 3).unwrap();
     assert_eq!(result.to_string(), "2.0.0-beta.3");
 
-    let result = apply_pre_release(&base, "rc", 1);
+    let result = apply_pre_release(&base, "rc", 1).unwrap();
     assert_eq!(result.to_string(), "2.0.0-rc.1");
   }
 
@@ -301,5 +248,24 @@ mod tests {
 
     state.remove("@scope/pkg");
     assert!(!state.is_in_pre("@scope/pkg"));
+  }
+
+  #[test]
+  fn test_apply_pre_release_invalid_tag_returns_error() {
+    let base = semver::Version::new(1, 0, 0);
+
+    // Empty tag should fail (empty pre-release identifier not allowed by semver)
+    let result = apply_pre_release(&base, "", 1);
+    assert!(result.is_err(), "Empty tag should produce an error");
+
+    // Tag with special characters should fail
+    // (semver prerelease only allows alphanumeric and hyphens)
+    let result = apply_pre_release(&base, "beta!@#", 1);
+    assert!(result.is_err(), "Tag with special chars should produce an error");
+
+    // Valid tags should still work
+    let result = apply_pre_release(&base, "beta", 1);
+    assert!(result.is_ok(), "Valid tag should succeed");
+    assert_eq!(result.unwrap().to_string(), "1.0.0-beta.1");
   }
 }

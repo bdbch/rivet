@@ -190,8 +190,10 @@ fn parse_frontmatter(content: &str) -> Option<(&str, &str)> {
   // Look for "\n---" followed by end-of-line or newline
   let closing_marker = after_opening.find("\n---")?;
 
-  // Split at the closing marker
-  let yaml_content = &after_opening[..closing_marker];
+  // Split at the closing marker.
+  // Trim trailing \r to handle CRLF line endings: the marker search splits on \n,
+  // leaving \r at the end of the YAML content when the file uses \r\n.
+  let yaml_content = after_opening[..closing_marker].trim_end_matches('\r');
   let after_closing = &after_opening[closing_marker + 4..]; // skip "\n---"
   let body = after_closing.trim_start();
 
@@ -341,17 +343,6 @@ pub fn archive_release_file(path: &Path, archive_dir: &Path) -> Result<()> {
   Ok(())
 }
 
-/// Strip stable (non-pre-release) entries from a release file.
-/// Used when a mixed release file contains entries for both pre-release
-/// and stable packages — the stable entries are removed so they don't
-/// repeat on the next bump, while pre-release entries are kept.
-pub fn strip_stable_entries(path: &Path, _is_pre_release: impl Fn(&str) -> bool) -> Result<()> {
-  // The changelog already captured the content during Phase 3.
-  // Any remaining entries would just cause re-processing on the next bump,
-  // so consume the file regardless of which entries it contains.
-  consume_release_file(path)
-}
-
 #[cfg(test)]
 mod tests {
   use super::*;
@@ -444,5 +435,27 @@ Summary here."#;
     assert!(path.to_string_lossy().ends_with(".md"));
     let parent = path.parent().unwrap();
     assert_eq!(parent, tmp.path());
+  }
+
+  #[test]
+  fn test_parse_frontmatter_crlf() {
+    // CRLF line endings should not break frontmatter parsing
+    let content = "---\r\n\"@scope/pkg-a\": patch\r\n---\r\n\r\nSummary with CRLF.\r\n";
+    let (yaml, body) = parse_frontmatter(content).unwrap();
+    assert!(!yaml.ends_with('\r'), "YAML should not have trailing CR: {:?}", yaml);
+    assert_eq!(body, "Summary with CRLF.");
+  }
+
+  #[test]
+  fn test_parse_release_crlf() {
+    let content = "---\r\n\"@scope/pkg-a\": patch\r\n---\r\n\r\nSummary with CRLF.\r\n";
+    let tmp = TempDir::new().unwrap();
+    let path = tmp.path().join("crlf.md");
+    std::fs::write(&path, content).unwrap();
+
+    let result = parse_release_file(&path).unwrap();
+    assert_eq!(result.releases.len(), 1);
+    assert_eq!(result.summary, "Summary with CRLF.");
+    assert!(result.releases.contains_key("@scope/pkg-a"));
   }
 }

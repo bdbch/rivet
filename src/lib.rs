@@ -27,46 +27,96 @@ use crate::cli::{Cli, Commands, PreAction};
 use crate::config::{OxrlsConfig, PreModeEntry};
 use crate::error::{OxrlsError, Result};
 use crate::init_wizard::run_init_wizard;
-use crate::package_json::PackageJson;
+
 use crate::premode::PreState;
 use crate::release::{ReleaseManifest, publish_manifest};
 use crate::release_file::{BumpType, create_release_file, parse_release_file};
-use crate::workspace::{Workspace, find_workspace_root, load_workspace};
+use crate::workspace::{find_workspace_root, load_workspace, Workspace};
+
+/// Result of the `check` command — determines what CI should do.
+/// These replace exit-code-based signaling that was previously done
+/// with `std::process::exit()` in library code (which is dangerous
+/// when called from NAPI — it would kill the entire Node.js process).
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CheckStatus {
+  /// Release files exist → don't release yet, there are pending changes.
+  PendingReleases,
+  /// Release plan exists and files are clean → ready to publish.
+  ReadyToRelease,
+  /// No pending releases → nothing to do.
+  NothingToRelease,
+}
+
+/// The result of running a command — used to carry extra info like
+/// exit codes from `check` up to the caller (main.rs) without using
+/// `process::exit()` inside library functions.
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+pub enum CmdResult {
+  /// Command completed normally.
+  Ok,
+  /// The `check` command ran and produced a status.
+  CheckStatus(CheckStatus),
+}
 
 /// Run the CLI with the given argument list.
 /// Shared by both the standalone binary (main.rs) and the NAPI entry point.
-pub fn run_with_args<I, S>(args: I) -> Result<()>
+/// Returns a `CmdResult` so that commands like `check` can signal
+/// exit-code-style results (e.g., "ready to publish") without calling
+/// `std::process::exit()` inside library code.
+pub fn run_with_args<I, S>(args: I) -> Result<CmdResult>
 where
   I: IntoIterator<Item = S>,
   S: Into<std::ffi::OsString> + Clone,
 {
-  let cli = Cli::parse_from(args);
+  let cli = Cli::try_parse_from(args).map_err(|e| {
+    // Use eprint so help/version text still reaches stderr
+    // (clap::Error::print() would call process::exit, so we manually format)
+    OxrlsError::Cli(e.to_string())
+  })?;
 
   match &cli.command {
     Commands::Init {
       force,
       release_dir,
       non_interactive,
-    } => cmd_init(*force, release_dir.as_deref(), *non_interactive),
+    } => {
+      cmd_init(*force, release_dir.as_deref(), *non_interactive)?;
+      Ok(CmdResult::Ok)
+    }
     Commands::New {
       packages,
       summary,
       details,
-    } => cmd_new(packages, summary.as_deref(), details.as_deref()),
-    Commands::Status => cmd_status(),
-    Commands::Bump { dry_run, archive } => cmd_bump(*dry_run, *archive),
-    Commands::Check => cmd_check(),
-    Commands::Release { dry_run, tag } => cmd_release(*dry_run, tag.as_deref()),
-    Commands::Pre { action } => match action {
-      Some(PreAction::Enter {
-        tag,
-        packages,
-        force,
-      }) => cmd_pre_enter(tag, packages, *force),
-      Some(PreAction::Exit { packages }) => cmd_pre_exit(packages),
-      Some(PreAction::Status) => cmd_pre_status(),
-      None => cmd_pre_interactive(),
-    },
+    } => {
+      cmd_new(packages, summary.as_deref(), details.as_deref())?;
+      Ok(CmdResult::Ok)
+    }
+    Commands::Status => {
+      cmd_status()?;
+      Ok(CmdResult::Ok)
+    }
+    Commands::Bump { dry_run, archive } => {
+      cmd_bump(*dry_run, *archive)?;
+      Ok(CmdResult::Ok)
+    }
+    Commands::Check => Ok(CmdResult::CheckStatus(cmd_check()?)),
+    Commands::Release { dry_run, tag } => {
+      cmd_release(*dry_run, tag.as_deref())?;
+      Ok(CmdResult::Ok)
+    }
+    Commands::Pre { action } => {
+      match action {
+        Some(PreAction::Enter {
+          tag,
+          packages,
+          force,
+        }) => cmd_pre_enter(tag, packages, *force)?,
+        Some(PreAction::Exit { packages }) => cmd_pre_exit(packages)?,
+        Some(PreAction::Status) => cmd_pre_status()?,
+        None => cmd_pre_interactive()?,
+      }
+      Ok(CmdResult::Ok)
+    }
   }
 }
 
@@ -76,12 +126,10 @@ pub fn run_cli(args: Vec<String>) -> napi::Result<()> {
   let full_args = std::iter::once("oxrls".to_string())
     .chain(args)
     .collect::<Vec<_>>();
-  run_with_args(&full_args).map_err(|e| napi::Error::from_reason(format!("{:#}", e)))
-}
-
-#[napi]
-pub fn plus_100(input: u32) -> u32 {
-  input + 100
+  // For the NAPI entry point, we ignore CmdResult and just propagate errors.
+  // Exit-code-style results from `check` are irrelevant when called from Node.
+  run_with_args(&full_args).map_err(|e| napi::Error::from_reason(format!("{:#}", e)))?;
+  Ok(())
 }
 
 // ---------------------------------------------------------------------------
@@ -96,24 +144,70 @@ fn get_release_dir(root: &Path, config: &OxrlsConfig, config_path: &Path) -> std
   }
 }
 
+/// Resolve package name patterns against the workspace, returning matched package names.
+/// Supports glob patterns (`*`/`?`), exact package name matches, and fuzzy suffix matching.
+fn resolve_package_patterns(
+  patterns: &[String],
+  workspace: &Workspace,
+) -> Result<Vec<String>> {
+  let mut matched: Vec<String> = Vec::new();
+  for pattern in patterns {
+    if pattern.contains('*') || pattern.contains('?') {
+      let pat = Pattern::new(pattern)
+        .map_err(|e| OxrlsError::Config(format!("Invalid glob pattern: {}", e)))?;
+      for name in workspace.packages.keys() {
+        if pat.matches(name) && !matched.contains(name) {
+          matched.push(name.clone());
+        }
+      }
+    } else if workspace.packages.contains_key(pattern) {
+      if !matched.contains(pattern) {
+        matched.push(pattern.clone());
+      }
+    } else {
+      let matches: Vec<String> = workspace
+        .packages
+        .keys()
+        .filter(|name| *name == pattern || name.ends_with(pattern.as_str()))
+        .cloned()
+        .collect();
+      if matches.is_empty() {
+        return Err(OxrlsError::Config(format!(
+          "No workspace package matches \"{}\". Available packages:\n  {}",
+          pattern,
+          workspace
+            .packages
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n  ")
+        )));
+      }
+      for name in matches {
+        if !matched.contains(&name) {
+          matched.push(name);
+        }
+      }
+    }
+  }
+  if matched.is_empty() {
+    return Err(OxrlsError::Config(
+      "No packages matched the given patterns.".to_string(),
+    ));
+  }
+  Ok(matched)
+}
+
 fn cmd_init(force: bool, release_dir: Option<&str>, non_interactive: bool) -> Result<()> {
   let cwd = std::env::current_dir().map_err(OxrlsError::Io)?;
 
-  let root = find_workspace_root(Path::new(".")).unwrap_or_else(|_| cwd.clone());
-  let workspace = load_workspace(&root).unwrap_or_else(|_| Workspace {
-    root: root.clone(),
-    root_package_json: PackageJson {
-      name: None,
-      version: None,
-      private: None,
-      dependencies: None,
-      dev_dependencies: None,
-      peer_dependencies: None,
-      optional_dependencies: None,
-      extra: std::collections::BTreeMap::new(),
-    },
-    packages: IndexMap::new(),
-  });
+  let root = find_workspace_root(Path::new(".")).map_err(|e| {
+    OxrlsError::Config(format!(
+      "No workspace found: {}. Run from a repo with a package.json.",
+      e
+    ))
+  })?;
+  let workspace = load_workspace(&root)?;
   let is_monorepo = workspace.packages.len() > 1;
 
   let config_path = cwd.join(".oxrls").join("config.json");
@@ -269,7 +363,7 @@ fn cmd_status() -> Result<()> {
 
   println!();
 
-  match build_release_plan(&workspace, &config, &release_dir, true) {
+  match build_release_plan(&workspace, &config, &release_dir) {
     Ok(plan) => {
       let _max_name = plan
         .bumps
@@ -299,7 +393,7 @@ fn cmd_status() -> Result<()> {
     }
     Err(e) => {
       eprintln!("\nCould not calculate bumps: {}", e);
-      std::process::exit(1);
+      return Err(e);
     }
   }
 
@@ -313,7 +407,7 @@ fn cmd_bump(dry_run: bool, archive: bool) -> Result<()> {
   let (config, config_path) = OxrlsConfig::load(&root)?;
   let release_dir = get_release_dir(&root, &config, &config_path);
 
-  let plan = build_release_plan(&workspace, &config, &release_dir, dry_run)?;
+  let plan = build_release_plan(&workspace, &config, &release_dir)?;
 
   if dry_run {
     println!("[DRY RUN] Would apply the following release plan:\n");
@@ -359,7 +453,7 @@ fn cmd_bump(dry_run: bool, archive: bool) -> Result<()> {
   Ok(())
 }
 
-fn cmd_check() -> Result<()> {
+fn cmd_check() -> Result<CheckStatus> {
   let root = find_workspace_root(Path::new("."))?;
   let (config, config_path) = OxrlsConfig::load(&root)?;
   let release_dir = get_release_dir(&root, &config, &config_path);
@@ -369,16 +463,16 @@ fn cmd_check() -> Result<()> {
 
   if !release_files.is_empty() {
     println!("Release files exist, skip release");
-    std::process::exit(0);
+    return Ok(CheckStatus::PendingReleases);
   }
 
   if has_release_plan {
     println!("Release plan exists and files are clean, can release");
-    std::process::exit(1);
+    return Ok(CheckStatus::ReadyToRelease);
   }
 
   println!("Nothing to release");
-  std::process::exit(0);
+  Ok(CheckStatus::NothingToRelease)
 }
 
 fn cmd_release(dry_run: bool, tag_override: Option<&str>) -> Result<()> {
@@ -396,7 +490,7 @@ fn cmd_release(dry_run: bool, tag_override: Option<&str>) -> Result<()> {
   }
 
   println!("Releasing {} package(s):\n", manifest.packages.len());
-  publish_manifest(&manifest, &workspace, &config, dry_run, tag_override)
+  publish_manifest(&manifest, &workspace, &config, &release_dir, dry_run, tag_override)
 }
 
 fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<()> {
@@ -410,52 +504,7 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
     ));
   }
 
-  let mut resolved_packages: Vec<String> = Vec::new();
-  for pattern in package_patterns {
-    if pattern.contains('*') || pattern.contains('?') {
-      let pat = Pattern::new(pattern)
-        .map_err(|e| OxrlsError::Config(format!("Invalid glob pattern: {}", e)))?;
-      for name in workspace.packages.keys() {
-        if pat.matches(name) && !resolved_packages.contains(name) {
-          resolved_packages.push(name.clone());
-        }
-      }
-    } else if workspace.packages.contains_key(pattern) {
-      if !resolved_packages.contains(pattern) {
-        resolved_packages.push(pattern.clone());
-      }
-    } else {
-      let matches: Vec<String> = workspace
-        .packages
-        .keys()
-        .filter(|name| *name == pattern || name.ends_with(pattern.as_str()))
-        .cloned()
-        .collect();
-      if matches.is_empty() {
-        return Err(OxrlsError::Config(format!(
-          "No workspace package matches \"{}\". Available packages:\n  {}",
-          pattern,
-          workspace
-            .packages
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>()
-            .join("\n  ")
-        )));
-      }
-      for name in matches {
-        if !resolved_packages.contains(&name) {
-          resolved_packages.push(name);
-        }
-      }
-    }
-  }
-
-  if resolved_packages.is_empty() {
-    return Err(OxrlsError::Config(
-      "No packages matched the given patterns.".to_string(),
-    ));
-  }
+  let resolved_packages = resolve_package_patterns(package_patterns, &workspace)?;
 
   let entry_idx = config.pre_mode.iter().position(|e| e.tag == tag);
   let idx = if let Some(i) = entry_idx {
@@ -490,12 +539,8 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
         .packages
         .retain(|p| !resolved_packages.contains(p));
     }
-    let mut pre_state = PreState::load(
-      &config_path
-        .parent()
-        .unwrap_or(&root)
-        .join(&config.release_dir),
-    )?;
+    let release_dir = get_release_dir(&root, &config, &config_path);
+    let mut pre_state = PreState::load(&release_dir)?;
     for pkg_name in &resolved_packages {
       if pre_state.is_in_pre(pkg_name)
         && let Some(entry) = pre_state.pre_versions.get(pkg_name)
@@ -504,12 +549,7 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
         pre_state.remove(pkg_name);
       }
     }
-    pre_state.save(
-      &config_path
-        .parent()
-        .unwrap_or(&root)
-        .join(&config.release_dir),
-    )?;
+    pre_state.save(&release_dir)?;
   }
 
   let entry = &mut config.pre_mode[idx];
@@ -542,46 +582,7 @@ fn cmd_pre_exit(package_patterns: &[String]) -> Result<()> {
     return Err(OxrlsError::Config("No oxrls.json found.".to_string()));
   }
 
-  let mut to_remove: Vec<String> = Vec::new();
-  for pattern in package_patterns {
-    if pattern.contains('*') || pattern.contains('?') {
-      let pat = Pattern::new(pattern)
-        .map_err(|e| OxrlsError::Config(format!("Invalid glob pattern: {}", e)))?;
-      for name in workspace.packages.keys() {
-        if pat.matches(name) && !to_remove.contains(name) {
-          to_remove.push(name.clone());
-        }
-      }
-    } else if workspace.packages.contains_key(pattern) {
-      if !to_remove.contains(pattern) {
-        to_remove.push(pattern.clone());
-      }
-    } else {
-      let matches: Vec<String> = workspace
-        .packages
-        .keys()
-        .filter(|name| *name == pattern || name.ends_with(pattern.as_str()))
-        .cloned()
-        .collect();
-      if matches.is_empty() {
-        return Err(OxrlsError::Config(format!(
-          "No workspace package matches \"{}\". Available packages:\n  {}",
-          pattern,
-          workspace
-            .packages
-            .keys()
-            .cloned()
-            .collect::<Vec<_>>()
-            .join("\n  ")
-        )));
-      }
-      for name in matches {
-        if !to_remove.contains(&name) {
-          to_remove.push(name);
-        }
-      }
-    }
-  }
+  let to_remove = resolve_package_patterns(package_patterns, &workspace)?;
 
   for entry in &mut config.pre_mode {
     entry.packages.retain(|p| !to_remove.contains(p));
@@ -590,21 +591,12 @@ fn cmd_pre_exit(package_patterns: &[String]) -> Result<()> {
 
   OxrlsConfig::write_to(&config_path, &config, true)?;
 
-  let mut pre_state = PreState::load(
-    &config_path
-      .parent()
-      .unwrap_or(&root)
-      .join(&config.release_dir),
-  )?;
+  let release_dir = get_release_dir(&root, &config, &config_path);
+  let mut pre_state = PreState::load(&release_dir)?;
   for pkg_name in &to_remove {
     pre_state.remove(pkg_name);
   }
-  pre_state.save(
-    &config_path
-      .parent()
-      .unwrap_or(&root)
-      .join(&config.release_dir),
-  )?;
+  pre_state.save(&release_dir)?;
 
   println!(
     "Exited pre-release mode for {} package(s):",

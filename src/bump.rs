@@ -32,6 +32,10 @@ pub struct PlannedBump {
 pub struct ReleasePlan {
   pub bumps: IndexMap<String, PlannedBump>,
   pub internal_dep_updates: Vec<InternalDepUpdateInfo>,
+  /// The pre-release state after counter increments.
+  /// We carry this through to `apply_release_plan` so the counters
+  /// only get persisted after a successful apply (atomicity).
+  pub pre_state: PreState,
 }
 
 /// Information about an internal dependency range update.
@@ -50,7 +54,6 @@ pub fn build_release_plan(
   workspace: &Workspace,
   config: &OxrlsConfig,
   release_dir: &Path,
-  dry_run: bool,
 ) -> Result<ReleasePlan> {
   // Find all release files
   let release_files = find_release_files(release_dir)?;
@@ -109,17 +112,17 @@ pub fn build_release_plan(
     // to the base version before adding the pre-release tag.
     // Subsequent bumps only increment the pre-release counter.
     let new_version = if let Some((tag, count)) =
-      resolve_pre_release(pkg_name, config, &mut pre_state, workspace)
+      resolve_pre_release(pkg_name, config, &mut pre_state)
     {
       if count == 1 {
         // First pre-release: bump the base version, then add pre-release tag
         let bumped = bump_version(&old_version, *bump_type);
         let base = semver::Version::new(bumped.major, bumped.minor, bumped.patch);
-        apply_pre_release(&base, &tag, count)
+        apply_pre_release(&base, &tag, count)?
       } else {
         // Subsequent pre-release: keep the base version, just increment counter
         let base = semver::Version::new(old_version.major, old_version.minor, old_version.patch);
-        apply_pre_release(&base, &tag, count)
+        apply_pre_release(&base, &tag, count)?
       }
     } else {
       // Normal bump — not in pre-release mode
@@ -144,10 +147,12 @@ pub fn build_release_plan(
     );
   }
 
-  // Save pre-state after all bumps (counters are already incremented)
-  if !dry_run {
-    pre_state.save(release_dir)?;
-  }
+  // NOTE: We do NOT save pre_state here, even if !dry_run.
+  // The pre_state is carried forward in ReleasePlan and saved in
+  // `apply_release_plan` after all writes succeed. This ensures
+  // the counter is only persisted when the bump actually completes
+  // (atomicity — if applying the plan fails, the counter stays
+  // unchanged, so a retry produces the same pre-release version).
 
   // Apply fixed group constraints — all packages in a fixed group share the same version
   apply_fixed_groups(&mut bumps, workspace, config)?;
@@ -161,6 +166,7 @@ pub fn build_release_plan(
   Ok(ReleasePlan {
     bumps,
     internal_dep_updates: internal_updates,
+    pre_state,
   })
 }
 
@@ -228,7 +234,10 @@ fn resolve_group_patterns(
       !exclusion_patterns.iter().any(|pat_str| {
         Pattern::new(pat_str)
           .map(|pat| pat.matches(name))
-          .unwrap_or(false)
+          .unwrap_or_else(|e| {
+            eprintln!("Warning: invalid glob pattern \"!{}\": {}", pat_str, e);
+            false
+          })
       })
     });
   }
@@ -660,15 +669,14 @@ pub fn apply_release_plan(
     }
   }
 
-  // Closure to check if a package name is in pre-release mode
-  let is_pre = |name: &str| -> bool { pre_release_pkgs.contains(name) };
-
   if archive {
     let archive_dir = release_dir.join("archive");
     for (_name, bump) in &plan.bumps {
       for rf_path in &bump.release_files {
         if pre_release_files.contains(rf_path) {
-          crate::release_file::strip_stable_entries(rf_path, is_pre)?;
+          // Pre-release entries were already recorded in the changelog
+          // during Phase 3, so just consume the file to avoid replaying.
+          consume_release_file(rf_path)?;
           println!(
             "  {} (consumed — pre-release entries already in changelog)",
             rf_path.display()
@@ -685,7 +693,8 @@ pub fn apply_release_plan(
       for rf_path in &bump.release_files {
         if pre_release_files.contains(rf_path) {
           if consumed.insert(rf_path.clone()) {
-            crate::release_file::strip_stable_entries(rf_path, is_pre)?;
+            // Pre-release entries already recorded in changelog.
+            consume_release_file(rf_path)?;
             println!(
               "  {} (consumed — pre-release entries already in changelog)",
               rf_path.display()
@@ -700,6 +709,11 @@ pub fn apply_release_plan(
       }
     }
   }
+
+  // Persist the pre-release counters only after all writes have succeeded.
+  // This is critical for atomicity — if an earlier step failed, the counters
+  // remain unchanged and a retry produces the same pre-release versions.
+  plan.pre_state.save(release_dir)?;
 
   Ok(())
 }
@@ -880,7 +894,7 @@ Fix bug."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     let react = plan.bumps.get("@scope/react").unwrap();
@@ -912,7 +926,7 @@ Fix bug."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     assert!(plan.bumps.contains_key("@scope/core"));
     assert!(!plan.bumps.contains_key("@scope/react"));
@@ -935,7 +949,7 @@ Fix transaction mapping bug."#;
     std::fs::write(release_dir.join("calm-blue-fox.md"), content).unwrap();
 
     let config = OxrlsConfig::default();
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     assert_eq!(plan.bumps.len(), 1);
     let bump = plan.bumps.get("@scope/core").unwrap();
@@ -960,7 +974,7 @@ Fix something."#;
     std::fs::write(release_dir.join("bad.md"), content).unwrap();
 
     let config = OxrlsConfig::default();
-    let result = build_release_plan(&workspace, &config, &release_dir, false);
+    let result = build_release_plan(&workspace, &config, &release_dir);
     assert!(result.is_err());
     let err = result.unwrap_err().to_string();
     assert!(err.contains("@scope/missing"));
@@ -990,7 +1004,7 @@ Add feature."#;
     std::fs::write(release_dir.join("file2.md"), content2).unwrap();
 
     let config = OxrlsConfig::default();
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     let bump = plan.bumps.get("@scope/core").unwrap();
     assert_eq!(bump.new_version, semver::Version::new(1, 3, 0)); // minor wins over patch
@@ -1012,7 +1026,7 @@ Fix bug."#;
     std::fs::write(release_dir.join("test.md"), content).unwrap();
 
     let config = OxrlsConfig::default();
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     // Dry run should not modify files
     apply_release_plan(&workspace, &plan, &config, &release_dir, true, false).unwrap();
@@ -1045,11 +1059,16 @@ Fix bug."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     // Should be 1.2.4-beta.1 instead of 1.2.4
     assert_eq!(core.new_version.to_string(), "1.2.4-beta.1");
+
+    // Persist the pre-state as `apply_release_plan` would do.
+    // Pre-release counters are only saved after a successful apply,
+    // so we simulate that here before the second plan build.
+    plan.pre_state.save(&release_dir).unwrap();
 
     // Second bump should increment the counter
     let content2 = r#"---
@@ -1059,7 +1078,7 @@ Fix bug."#;
 Fix another bug."#;
     std::fs::write(release_dir.join("test2.md"), content2).unwrap();
 
-    let plan2 = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan2 = build_release_plan(&workspace, &config, &release_dir).unwrap();
     let core2 = plan2.bumps.get("@scope/core").unwrap();
     assert_eq!(core2.new_version.to_string(), "1.2.3-beta.2");
   }
@@ -1087,7 +1106,7 @@ Breaking change."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     // Major bump from 1.2.3 -> 2.0.0-rc.1
@@ -1119,7 +1138,7 @@ Multiple changes."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     assert_eq!(core.new_version.to_string(), "1.2.4-beta.1");
@@ -1163,7 +1182,7 @@ Fix bug."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     // Both packages should be bumped to the same version (based on highest old version)
     let core = plan.bumps.get("@scope/core").unwrap();
@@ -1210,7 +1229,7 @@ Breaking change."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     let utils = plan.bumps.get("@scope/utils").unwrap();
@@ -1248,7 +1267,7 @@ Add feature."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
     let react = plan.bumps.get("@scope/react").unwrap();
@@ -1277,7 +1296,7 @@ Fix bug."#;
     std::fs::write(release_dir.join("test.md"), content).unwrap();
 
     let config = OxrlsConfig::default();
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     // Check that @scope/react's dependency on @scope/core is flagged for update
     let has_core_update = plan
@@ -1332,7 +1351,7 @@ Completely rewritten core logic."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     let utils = plan.bumps.get("@scope/utils").unwrap();
     let tools = plan.bumps.get("@scope/tools").unwrap();
@@ -1377,7 +1396,7 @@ Mixed changes for pre-release and stable."#;
       ..Default::default()
     };
 
-    let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
 
     // Verify both packages are in the plan
     assert!(plan.bumps.contains_key("@scope/core"));
@@ -1412,5 +1431,54 @@ Mixed changes for pre-release and stable."#;
       !rf_path.exists(),
       "Release file should be consumed as pre-release entries were already captured"
     );
+  }
+
+  #[test]
+  fn test_pre_state_not_saved_by_build_plan_alone() {
+    // When build_release_plan is called without a subsequent apply,
+    // the pre-release counters should NOT be persisted to disk.
+    // This ensures that if apply_release_plan fails, a retry
+    // produces the same pre-release version (counter stays unchanged
+    // until the apply actually succeeds).
+    let tmp = TempDir::new().unwrap();
+    let workspace = create_test_workspace(&tmp);
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    let content = r#"---
+"@scope/core": patch
+---
+
+Fix bug."#;
+    std::fs::write(release_dir.join("test.md"), content).unwrap();
+
+    let config = OxrlsConfig {
+      pre_mode: vec![crate::config::PreModeEntry {
+        tag: "beta".to_string(),
+        packages: vec!["@scope/core".to_string()],
+      }],
+      ..Default::default()
+    };
+
+    // First build: counter goes 0→1 in memory only
+    let plan1 = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let core1 = plan1.bumps.get("@scope/core").unwrap();
+    assert_eq!(core1.new_version.to_string(), "1.2.4-beta.1");
+
+    // Second build WITHOUT saving pre-state:
+    // if counters were persisted, we'd get beta.2.
+    // With the atomicity fix, we should still get beta.1
+    // because the save only happens in apply_release_plan.
+    let plan2 = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let core2 = plan2.bumps.get("@scope/core").unwrap();
+    assert_eq!(core2.new_version.to_string(), "1.2.4-beta.1");
+
+    // Now simulate the apply: save the pre-state and verify
+    // the NEXT build sees the incremented counter.
+    plan2.pre_state.save(&release_dir).unwrap();
+    let plan3 = build_release_plan(&workspace, &config, &release_dir).unwrap();
+    let core3 = plan3.bumps.get("@scope/core").unwrap();
+    assert_eq!(core3.new_version.to_string(), "1.2.3-beta.2");
   }
 }
