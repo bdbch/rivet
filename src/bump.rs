@@ -105,13 +105,24 @@ pub fn build_release_plan(
     let old_version = pkg.package_json.semver_version()?;
 
     // Apply pre-release tag if the package is in pre-mode
-    // When already in pre-release, keep the base version and just increment the counter
+    // On the FIRST pre-release bump (count == 1), apply the bump type
+    // to the base version before adding the pre-release tag.
+    // Subsequent bumps only increment the pre-release counter.
     let new_version = if let Some((tag, count)) =
       resolve_pre_release(pkg_name, config, &mut pre_state, workspace)
     {
-      // Strip pre-release suffix, use the base version, then re-apply with new counter
-      let base = semver::Version::new(old_version.major, old_version.minor, old_version.patch);
-      apply_pre_release(&base, &tag, count)
+      if count == 1 {
+        // First pre-release: bump the base version, then add pre-release tag
+        let bumped = bump_version(&old_version, *bump_type);
+        let base =
+          semver::Version::new(bumped.major, bumped.minor, bumped.patch);
+        apply_pre_release(&base, &tag, count)
+      } else {
+        // Subsequent pre-release: keep the base version, just increment counter
+        let base =
+          semver::Version::new(old_version.major, old_version.minor, old_version.patch);
+        apply_pre_release(&base, &tag, count)
+      }
     } else {
       // Normal bump — not in pre-release mode
       bump_version(&old_version, *bump_type)
@@ -1040,7 +1051,7 @@ Fix bug."#;
 
     let core = plan.bumps.get("@scope/core").unwrap();
     // Should be 1.2.4-beta.1 instead of 1.2.4
-    assert_eq!(core.new_version.to_string(), "1.2.3-beta.1");
+    assert_eq!(core.new_version.to_string(), "1.2.4-beta.1");
 
     // Second bump should increment the counter
     let content2 = r#"---
@@ -1082,7 +1093,7 @@ Breaking change."#;
 
     let core = plan.bumps.get("@scope/core").unwrap();
     // Major bump from 1.2.3 -> 2.0.0-rc.1
-    assert_eq!(core.new_version.to_string(), "1.2.3-rc.1");
+    assert_eq!(core.new_version.to_string(), "2.0.0-rc.1");
     assert_eq!(core.old_version.to_string(), "1.2.3");
   }
 
@@ -1113,7 +1124,7 @@ Multiple changes."#;
     let plan = build_release_plan(&workspace, &config, &release_dir, false).unwrap();
 
     let core = plan.bumps.get("@scope/core").unwrap();
-    assert_eq!(core.new_version.to_string(), "1.2.3-beta.1");
+    assert_eq!(core.new_version.to_string(), "1.2.4-beta.1");
 
     let react = plan.bumps.get("@scope/react").unwrap();
     assert_eq!(react.new_version.to_string(), "1.1.0"); // no pre-release

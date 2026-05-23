@@ -3,7 +3,7 @@
 authors = ["Dominik Biedebach <dominik@bdbch.com>"]
 edition = "2024"
 name = "oxrls"
-version = "1.0.0-alpha.4"
+version = "1.0.0-alpha.5"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
