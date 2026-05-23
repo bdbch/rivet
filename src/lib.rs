@@ -420,34 +420,32 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
           resolved_packages.push(name.clone());
         }
       }
+    } else if workspace.packages.contains_key(pattern) {
+      if !resolved_packages.contains(pattern) {
+        resolved_packages.push(pattern.clone());
+      }
     } else {
-      if workspace.packages.contains_key(pattern) {
-        if !resolved_packages.contains(pattern) {
-          resolved_packages.push(pattern.clone());
-        }
-      } else {
-        let matches: Vec<String> = workspace
-          .packages
-          .keys()
-          .filter(|name| *name == pattern || name.ends_with(pattern.as_str()))
-          .cloned()
-          .collect();
-        if matches.is_empty() {
-          return Err(OxrlsError::Config(format!(
-            "No workspace package matches \"{}\". Available packages:\n  {}",
-            pattern,
-            workspace
-              .packages
-              .keys()
-              .cloned()
-              .collect::<Vec<_>>()
-              .join("\n  ")
-          )));
-        }
-        for name in matches {
-          if !resolved_packages.contains(&name) {
-            resolved_packages.push(name);
-          }
+      let matches: Vec<String> = workspace
+        .packages
+        .keys()
+        .filter(|name| *name == pattern || name.ends_with(pattern.as_str()))
+        .cloned()
+        .collect();
+      if matches.is_empty() {
+        return Err(OxrlsError::Config(format!(
+          "No workspace package matches \"{}\". Available packages:\n  {}",
+          pattern,
+          workspace
+            .packages
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n  ")
+        )));
+      }
+      for name in matches {
+        if !resolved_packages.contains(&name) {
+          resolved_packages.push(name);
         }
       }
     }
@@ -499,12 +497,11 @@ fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<
         .join(&config.release_dir),
     )?;
     for pkg_name in &resolved_packages {
-      if pre_state.is_in_pre(pkg_name) {
-        if let Some(entry) = pre_state.pre_versions.get(pkg_name)
-          && entry.tag != tag
-        {
-          pre_state.remove(pkg_name);
-        }
+      if pre_state.is_in_pre(pkg_name)
+        && let Some(entry) = pre_state.pre_versions.get(pkg_name)
+        && entry.tag != tag
+      {
+        pre_state.remove(pkg_name);
       }
     }
     pre_state.save(
@@ -555,34 +552,32 @@ fn cmd_pre_exit(package_patterns: &[String]) -> Result<()> {
           to_remove.push(name.clone());
         }
       }
+    } else if workspace.packages.contains_key(pattern) {
+      if !to_remove.contains(pattern) {
+        to_remove.push(pattern.clone());
+      }
     } else {
-      if workspace.packages.contains_key(pattern) {
-        if !to_remove.contains(pattern) {
-          to_remove.push(pattern.clone());
-        }
-      } else {
-        let matches: Vec<String> = workspace
-          .packages
-          .keys()
-          .filter(|name| *name == pattern || name.ends_with(pattern.as_str()))
-          .cloned()
-          .collect();
-        if matches.is_empty() {
-          return Err(OxrlsError::Config(format!(
-            "No workspace package matches \"{}\". Available packages:\n  {}",
-            pattern,
-            workspace
-              .packages
-              .keys()
-              .cloned()
-              .collect::<Vec<_>>()
-              .join("\n  ")
-          )));
-        }
-        for name in matches {
-          if !to_remove.contains(&name) {
-            to_remove.push(name);
-          }
+      let matches: Vec<String> = workspace
+        .packages
+        .keys()
+        .filter(|name| *name == pattern || name.ends_with(pattern.as_str()))
+        .cloned()
+        .collect();
+      if matches.is_empty() {
+        return Err(OxrlsError::Config(format!(
+          "No workspace package matches \"{}\". Available packages:\n  {}",
+          pattern,
+          workspace
+            .packages
+            .keys()
+            .cloned()
+            .collect::<Vec<_>>()
+            .join("\n  ")
+        )));
+      }
+      for name in matches {
+        if !to_remove.contains(&name) {
+          to_remove.push(name);
         }
       }
     }
