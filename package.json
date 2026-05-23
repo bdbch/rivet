@@ -91,5 +91,11 @@
     "prepare": "vp config",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava"
+  },
+  "optionalDependencies": {
+    "@bdbchgg/oxrls-darwin-arm64": "1.0.0-alpha.4",
+    "@bdbchgg/oxrls-darwin-x64": "1.0.0-alpha.4",
+    "@bdbchgg/oxrls-linux-x64-gnu": "1.0.0-alpha.4",
+    "@bdbchgg/oxrls-win32-x64-msvc": "1.0.0-alpha.4"
   }
 }
