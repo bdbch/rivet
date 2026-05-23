@@ -27,6 +27,7 @@ Then add this to your `package.json` scripts:
     "release": "oxrls release" # publish to npm (after bumping versions)
   }
 }
+```
 
 ```bash
 # Initialize
