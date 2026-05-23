@@ -4,6 +4,12 @@
 
 ### Patch Changes
 
+- **@bdbchgg/oxrls** (v1.0.0-alpha.5): Fixed a bug where a pre-version would not correctly bump it's version on the first pre-version
+
+## 2026-05-23
+
+### Patch Changes
+
 - **@bdbchgg/oxrls** (v1.0.0-alpha.4): Fixed a bug that caused the binary not to be included with the bundle
 
 ## 2026-05-22
