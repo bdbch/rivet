@@ -1,13 +1,13 @@
-mod plan;
-mod groups;
-mod deps;
 mod apply;
+mod deps;
 mod discovery;
+mod groups;
+mod plan;
 
 // Public API — re-export everything that was `pub` in the original bump.rs
-pub use plan::{PlannedBump, ReleasePlan, InternalDepUpdateInfo, build_release_plan};
 pub use apply::{apply_release_plan, print_plan};
 pub use discovery::find_release_files;
+pub use plan::{InternalDepUpdateInfo, PlannedBump, ReleasePlan, build_release_plan};
 
 // Internal items — re-exported as pub(crate) for cross-module access and tests
 #[cfg(test)]
@@ -17,10 +17,10 @@ pub(crate) use groups::resolve_group_patterns;
 mod tests {
   use super::*;
   use crate::config::OxrlsConfig;
-  use crate::workspace::PackageJson;
   use crate::release_file::BumpType;
-  use crate::workspace::load_workspace;
+  use crate::workspace::PackageJson;
   use crate::workspace::Workspace;
+  use crate::workspace::load_workspace;
   use tempfile::TempDir;
 
   fn create_test_workspace(tmp: &TempDir) -> Workspace {

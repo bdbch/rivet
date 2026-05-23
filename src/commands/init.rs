@@ -10,7 +10,7 @@ use glob::Pattern;
 use crate::config::OxrlsConfig;
 use crate::error::{OxrlsError, Result};
 use crate::init_wizard::run_init_wizard;
-use crate::workspace::{find_workspace_root, load_workspace, Workspace};
+use crate::workspace::{Workspace, find_workspace_root, load_workspace};
 
 /// Resolve package name patterns against the workspace, returning matched package names.
 /// Supports glob patterns (`*`/`?`), exact package name matches, and fuzzy suffix matching.

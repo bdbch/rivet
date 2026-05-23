@@ -1,8 +1,8 @@
-pub mod state;
 pub mod logic;
+pub mod state;
 
-pub use state::*;
 pub use logic::*;
+pub use state::*;
 
 #[cfg(test)]
 mod tests {
@@ -126,7 +126,10 @@ mod tests {
     // Tag with special characters should fail
     // (semver prerelease only allows alphanumeric and hyphens)
     let result = apply_pre_release(&base, "beta!@#", 1);
-    assert!(result.is_err(), "Tag with special chars should produce an error");
+    assert!(
+      result.is_err(),
+      "Tag with special chars should produce an error"
+    );
 
     // Valid tags should still work
     let result = apply_pre_release(&base, "beta", 1);

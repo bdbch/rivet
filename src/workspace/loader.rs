@@ -159,12 +159,8 @@ fn get_workspace_globs(root: &Path) -> Result<Vec<String>> {
         e
       ))
     })?;
-    let yaml: serde_yaml::Value = serde_yaml::from_str(&content).map_err(|e| {
-      OxrlsError::Workspace(format!(
-        "pnpm-workspace.yaml has invalid YAML: {}",
-        e
-      ))
-    })?;
+    let yaml: serde_yaml::Value = serde_yaml::from_str(&content)
+      .map_err(|e| OxrlsError::Workspace(format!("pnpm-workspace.yaml has invalid YAML: {}", e)))?;
     if let Some(packages) = yaml.get("packages").and_then(|v| v.as_sequence()) {
       let globs: Vec<String> = packages
         .iter()

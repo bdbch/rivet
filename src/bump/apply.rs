@@ -5,9 +5,9 @@ use crate::changelog::{
 };
 use crate::config::OxrlsConfig;
 use crate::error::{OxrlsError, Result};
-use crate::workspace::PackageJson;
 use crate::release::ReleaseManifest;
 use crate::release_file::{BumpType, consume_release_file, parse_release_file};
+use crate::workspace::PackageJson;
 use crate::workspace::Workspace;
 use indexmap::IndexMap;
 use std::collections::HashSet;
@@ -80,11 +80,8 @@ pub fn apply_release_plan(
     {
       // Find the old and new versions for this dependency
       if let Some(bump) = plan.bumps.get(&update.dep_name) {
-        let new_range = crate::workspace::compute_new_range(
-          &current_range,
-          &bump.old_version,
-          &bump.new_version,
-        );
+        let new_range =
+          crate::workspace::compute_new_range(&current_range, &bump.old_version, &bump.new_version);
         if new_range != current_range {
           deps.insert(update.dep_name.clone(), new_range.clone());
           println!(

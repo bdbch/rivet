@@ -442,7 +442,11 @@ Summary here."#;
     // CRLF line endings should not break frontmatter parsing
     let content = "---\r\n\"@scope/pkg-a\": patch\r\n---\r\n\r\nSummary with CRLF.\r\n";
     let (yaml, body) = parse_frontmatter(content).unwrap();
-    assert!(!yaml.ends_with('\r'), "YAML should not have trailing CR: {:?}", yaml);
+    assert!(
+      !yaml.ends_with('\r'),
+      "YAML should not have trailing CR: {:?}",
+      yaml
+    );
     assert_eq!(body, "Summary with CRLF.");
   }
 

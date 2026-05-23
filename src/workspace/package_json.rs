@@ -150,9 +150,8 @@ fn compute_simple_range(
     let at_start = pos == 0;
     let at_end = pos + old_str.len() == trimmed.len();
     let prev_is_non_digit = pos > 0 && !trimmed.as_bytes()[pos - 1].is_ascii_digit();
-    let next_is_non_digit =
-      pos + old_str.len() < trimmed.len()
-        && !trimmed.as_bytes()[pos + old_str.len()].is_ascii_digit();
+    let next_is_non_digit = pos + old_str.len() < trimmed.len()
+      && !trimmed.as_bytes()[pos + old_str.len()].is_ascii_digit();
     if (at_start || prev_is_non_digit) && (at_end || next_is_non_digit) {
       let new_str = new_version.to_string();
       return format!("{}{}{}", before, new_str, after);

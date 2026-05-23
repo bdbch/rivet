@@ -128,7 +128,11 @@ pub fn run_cli(args: Vec<String>) -> napi::Result<()> {
 /// Resolve the absolute path to the release directory.
 /// Uses the config's `release_dir` field, resolving relative to the
 /// config file location when a config path is available.
-pub(crate) fn get_release_dir(root: &Path, config: &OxrlsConfig, config_path: &Path) -> std::path::PathBuf {
+pub(crate) fn get_release_dir(
+  root: &Path,
+  config: &OxrlsConfig,
+  config_path: &Path,
+) -> std::path::PathBuf {
   if !config_path.as_os_str().is_empty() {
     config.release_dir_abs(config_path)
   } else {

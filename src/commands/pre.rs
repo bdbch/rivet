@@ -24,8 +24,7 @@ pub fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Res
     ));
   }
 
-  let resolved_packages =
-    crate::commands::resolve_package_patterns(package_patterns, &workspace)?;
+  let resolved_packages = crate::commands::resolve_package_patterns(package_patterns, &workspace)?;
 
   let entry_idx = config.pre_mode.iter().position(|e| e.tag == tag);
   let idx = if let Some(i) = entry_idx {
@@ -103,8 +102,7 @@ pub fn cmd_pre_exit(package_patterns: &[String]) -> Result<()> {
     return Err(OxrlsError::Config("No oxrls.json found.".to_string()));
   }
 
-  let to_remove =
-    crate::commands::resolve_package_patterns(package_patterns, &workspace)?;
+  let to_remove = crate::commands::resolve_package_patterns(package_patterns, &workspace)?;
 
   for entry in &mut config.pre_mode {
     entry.packages.retain(|p| !to_remove.contains(p));

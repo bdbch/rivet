@@ -43,10 +43,7 @@ pub fn apply_pre_release(
 ) -> Result<semver::Version> {
   let pre = format!("{}.{}", tag, count);
   let prerelease = semver::Prerelease::new(&pre).map_err(|e| {
-    crate::error::OxrlsError::Version(format!(
-      "Invalid pre-release identifier '{}': {}",
-      pre, e
-    ))
+    crate::error::OxrlsError::Version(format!("Invalid pre-release identifier '{}': {}", pre, e))
   })?;
   Ok(semver::Version {
     major: base_version.major,

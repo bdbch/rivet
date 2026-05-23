@@ -1,10 +1,10 @@
-use crate::bump::discovery::find_release_files;
 use crate::bump::deps::compute_internal_dep_updates;
+use crate::bump::discovery::find_release_files;
 use crate::bump::groups::{apply_fixed_groups, apply_linked_groups};
 use crate::config::OxrlsConfig;
 use crate::error::{OxrlsError, Result};
-use crate::prerelease::{apply_pre_release, resolve_pre_release, PreState};
-use crate::release_file::{parse_release_file, BumpType, ReleaseFile};
+use crate::prerelease::{PreState, apply_pre_release, resolve_pre_release};
+use crate::release_file::{BumpType, ReleaseFile, parse_release_file};
 use crate::version_bump::bump_version;
 use crate::workspace::Workspace;
 use indexmap::IndexMap;
@@ -106,23 +106,22 @@ pub fn build_release_plan(
     // On the FIRST pre-release bump (count == 1), apply the bump type
     // to the base version before adding the pre-release tag.
     // Subsequent bumps only increment the pre-release counter.
-    let new_version = if let Some((tag, count)) =
-      resolve_pre_release(pkg_name, config, &mut pre_state)
-    {
-      if count == 1 {
-        // First pre-release: bump the base version, then add pre-release tag
-        let bumped = bump_version(&old_version, *bump_type);
-        let base = semver::Version::new(bumped.major, bumped.minor, bumped.patch);
-        apply_pre_release(&base, &tag, count)?
+    let new_version =
+      if let Some((tag, count)) = resolve_pre_release(pkg_name, config, &mut pre_state) {
+        if count == 1 {
+          // First pre-release: bump the base version, then add pre-release tag
+          let bumped = bump_version(&old_version, *bump_type);
+          let base = semver::Version::new(bumped.major, bumped.minor, bumped.patch);
+          apply_pre_release(&base, &tag, count)?
+        } else {
+          // Subsequent pre-release: keep the base version, just increment counter
+          let base = semver::Version::new(old_version.major, old_version.minor, old_version.patch);
+          apply_pre_release(&base, &tag, count)?
+        }
       } else {
-        // Subsequent pre-release: keep the base version, just increment counter
-        let base = semver::Version::new(old_version.major, old_version.minor, old_version.patch);
-        apply_pre_release(&base, &tag, count)?
-      }
-    } else {
-      // Normal bump — not in pre-release mode
-      bump_version(&old_version, *bump_type)
-    };
+        // Normal bump — not in pre-release mode
+        bump_version(&old_version, *bump_type)
+      };
 
     // Collect summaries from the release files that reference this package
     let summaries: Vec<String> = refs.iter().map(|rf| rf.summary.clone()).collect();

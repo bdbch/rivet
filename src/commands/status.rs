@@ -5,9 +5,9 @@
 
 use std::path::Path;
 
+use crate::bump::{build_release_plan, find_release_files};
 use crate::config::OxrlsConfig;
 use crate::error::Result;
-use crate::bump::{build_release_plan, find_release_files};
 use crate::release_file::parse_release_file;
 use crate::workspace::{find_workspace_root, load_workspace};
 
