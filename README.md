@@ -19,7 +19,7 @@ npm install @bdbchgg/oxrls --save-dev
 
 Then add this to your `package.json` scripts:
 
-````json
+```json
 {
   "scripts": {
     "oxrls": "oxrls", # for convenience, you can run `npm run oxrls` instead of `npx oxrls`
@@ -45,7 +45,7 @@ oxrls bump
 
 # Publish to npm
 oxrls release
-````
+```
 
 ## Commands
 
