@@ -114,13 +114,11 @@ pub fn build_release_plan(
       if count == 1 {
         // First pre-release: bump the base version, then add pre-release tag
         let bumped = bump_version(&old_version, *bump_type);
-        let base =
-          semver::Version::new(bumped.major, bumped.minor, bumped.patch);
+        let base = semver::Version::new(bumped.major, bumped.minor, bumped.patch);
         apply_pre_release(&base, &tag, count)
       } else {
         // Subsequent pre-release: keep the base version, just increment counter
-        let base =
-          semver::Version::new(old_version.major, old_version.minor, old_version.patch);
+        let base = semver::Version::new(old_version.major, old_version.minor, old_version.patch);
         apply_pre_release(&base, &tag, count)
       }
     } else {
