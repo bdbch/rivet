@@ -41,6 +41,13 @@ oxrls new --package @scope/core:patch --summary "Fix transaction mapping bug"
 oxrls status
 oxrls bump --dry-run
 
+# Pre-release mode (optional)
+oxrls pre # interactive, or
+oxrls pre enter alpha --package @scope/core # enter pre-release mode for @scope/core with "alpha" tag
+oxrls pre exit @scope/core # exit pre-release mode for @scope/core
+# Alternatively, you can set pre-release mode in the config file for specific packages or groups, and it will be applied automatically when bumping versions.
+# Just make sure to also remove the counter of the pre-released package in pre.json
+
 # Apply
 oxrls bump
 
