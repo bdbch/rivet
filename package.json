@@ -1,6 +1,6 @@
 {
   "name": "@bdbchgg/oxrls",
-  "version": "1.0.0-alpha.4",
+  "version": "1.0.0-alpha.5",
   "ava": {
     "environmentVariables": {
       "OXC_TSCONFIG_PATH": "./__test__/tsconfig.json"
@@ -58,6 +58,12 @@
       "aarch64-apple-darwin"
     ]
   },
+  "optionalDependencies": {
+    "@bdbchgg/oxrls-darwin-arm64": "1.0.0-alpha.4",
+    "@bdbchgg/oxrls-darwin-x64": "1.0.0-alpha.4",
+    "@bdbchgg/oxrls-linux-x64-gnu": "1.0.0-alpha.4",
+    "@bdbchgg/oxrls-win32-x64-msvc": "1.0.0-alpha.4"
+  },
   "packageManager": "yarn@4.14.1",
   "publishConfig": {
     "access": "public",
@@ -85,11 +91,5 @@
     "prepare": "vp config",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava"
-  },
-  "optionalDependencies": {
-    "@bdbchgg/oxrls-darwin-arm64": "1.0.0-alpha.4",
-    "@bdbchgg/oxrls-darwin-x64": "1.0.0-alpha.4",
-    "@bdbchgg/oxrls-linux-x64-gnu": "1.0.0-alpha.4",
-    "@bdbchgg/oxrls-win32-x64-msvc": "1.0.0-alpha.4"
   }
 }
