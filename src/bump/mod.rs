@@ -17,7 +17,7 @@ pub(crate) use groups::resolve_group_patterns;
 mod tests {
   use super::*;
   use crate::config::OxrlsConfig;
-  use crate::package_json::PackageJson;
+  use crate::workspace::PackageJson;
   use crate::release_file::BumpType;
   use crate::workspace::load_workspace;
   use crate::workspace::Workspace;

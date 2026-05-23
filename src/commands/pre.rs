@@ -10,7 +10,7 @@ use inquire::{MultiSelect, Text};
 
 use crate::config::{OxrlsConfig, PreModeEntry};
 use crate::error::{OxrlsError, Result};
-use crate::premode::PreState;
+use crate::prerelease::PreState;
 use crate::workspace::{find_workspace_root, load_workspace};
 
 pub fn cmd_pre_enter(tag: &str, package_patterns: &[String], force: bool) -> Result<()> {

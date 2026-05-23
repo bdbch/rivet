@@ -1,7 +1,7 @@
 use crate::bump::PlannedBump;
 use crate::config::OxrlsConfig;
 use crate::error::{OxrlsError, Result};
-use crate::package_json::PackageJson;
+use crate::workspace::PackageJson;
 use crate::workspace::Workspace;
 use indexmap::IndexMap;
 use std::path::{Path, PathBuf};

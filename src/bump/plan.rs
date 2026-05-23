@@ -3,7 +3,7 @@ use crate::bump::deps::compute_internal_dep_updates;
 use crate::bump::groups::{apply_fixed_groups, apply_linked_groups};
 use crate::config::OxrlsConfig;
 use crate::error::{OxrlsError, Result};
-use crate::premode::{apply_pre_release, resolve_pre_release, PreState};
+use crate::prerelease::{apply_pre_release, resolve_pre_release, PreState};
 use crate::release_file::{parse_release_file, BumpType, ReleaseFile};
 use crate::version_bump::bump_version;
 use crate::workspace::Workspace;

@@ -1,8 +1,9 @@
 use crate::error::{OxrlsError, Result};
-use crate::package_json::PackageJson;
 use glob::glob;
 use indexmap::IndexMap;
 use std::path::{Path, PathBuf};
+
+use super::package_json::PackageJson;
 
 /// A discovered workspace package.
 #[derive(Debug, Clone)]

@@ -6,7 +6,7 @@
 use indexmap::IndexMap;
 use oxrls::bump::{apply_release_plan, build_release_plan, find_release_files, print_plan};
 use oxrls::config::{Access, InternalDepUpdate, OxrlsConfig, PreModeEntry};
-use oxrls::package_json::PackageJson;
+use oxrls::workspace::PackageJson;
 use oxrls::release_file::{BumpType, create_release_file};
 use oxrls::workspace::load_workspace;
 use semver::Version;
@@ -270,7 +270,7 @@ fn test_full_user_flow_init_pre_mode_bump() {
     apply_release_plan(&workspace2, &plan2, &config, &oxrls_dir, false, false).unwrap();
     assert_version(&tmp.path().join("packages/internal"), "1.1.0-alpha.2");
 
-    let pre_state = oxrls::premode::PreState::load(&oxrls_dir).unwrap();
+    let pre_state = oxrls::prerelease::PreState::load(&oxrls_dir).unwrap();
     assert_eq!(pre_state.pre_versions.get("@scope/internal").unwrap().count, 2);
 
     println!("\n✅ Megatest passed: all 8 phases verified successfully!");
