@@ -18,9 +18,9 @@ pub mod workspace;
 use std::path::Path;
 
 use clap::Parser;
+use glob::Pattern;
 use indexmap::IndexMap;
 use inquire::{MultiSelect, Select, Text};
-use glob::Pattern;
 
 use crate::bump::{apply_release_plan, build_release_plan, find_release_files, print_plan};
 use crate::cli::{Cli, Commands, PreAction};
@@ -100,21 +100,19 @@ fn cmd_init(force: bool, release_dir: Option<&str>, non_interactive: bool) -> Re
   let cwd = std::env::current_dir().map_err(OxrlsError::Io)?;
 
   let root = find_workspace_root(Path::new(".")).unwrap_or_else(|_| cwd.clone());
-  let workspace = load_workspace(&root).unwrap_or_else(|_| {
-    Workspace {
-      root: root.clone(),
-      root_package_json: PackageJson {
-        name: None,
-        version: None,
-        private: None,
-        dependencies: None,
-        dev_dependencies: None,
-        peer_dependencies: None,
-        optional_dependencies: None,
-        extra: std::collections::BTreeMap::new(),
-      },
-      packages: IndexMap::new(),
-    }
+  let workspace = load_workspace(&root).unwrap_or_else(|_| Workspace {
+    root: root.clone(),
+    root_package_json: PackageJson {
+      name: None,
+      version: None,
+      private: None,
+      dependencies: None,
+      dev_dependencies: None,
+      peer_dependencies: None,
+      optional_dependencies: None,
+      extra: std::collections::BTreeMap::new(),
+    },
+    packages: IndexMap::new(),
   });
   let is_monorepo = workspace.packages.len() > 1;
 
@@ -134,9 +132,8 @@ fn cmd_init(force: bool, release_dir: Option<&str>, non_interactive: bool) -> Re
   println!("Created config file: {}", config_path.display());
 
   let release_dir = cwd.join(&config.release_dir);
-  std::fs::create_dir_all(&release_dir).map_err(|e| {
-    OxrlsError::Config(format!("Failed to create release dir: {}", e))
-  })?;
+  std::fs::create_dir_all(&release_dir)
+    .map_err(|e| OxrlsError::Config(format!("Failed to create release dir: {}", e)))?;
 
   let readme_path = release_dir.join("README.md");
   if !readme_path.exists() {
@@ -177,9 +174,7 @@ fn cmd_new(packages: &[String], summary: Option<&str>, details: Option<&str>) ->
       .map_err(|e| OxrlsError::Other(format!("Selection failed: {}", e)))?;
 
     if selected.is_empty() {
-      return Err(OxrlsError::ReleaseFile(
-        "No packages selected.".to_string(),
-      ));
+      return Err(OxrlsError::ReleaseFile("No packages selected.".to_string()));
     }
 
     let bump_options = vec!["patch", "minor", "major"];
@@ -547,9 +542,7 @@ fn cmd_pre_exit(package_patterns: &[String]) -> Result<()> {
 
   let (mut config, config_path) = OxrlsConfig::load(&root)?;
   if config_path.as_os_str().is_empty() {
-    return Err(OxrlsError::Config(
-      "No oxrls.json found.".to_string(),
-    ));
+    return Err(OxrlsError::Config("No oxrls.json found.".to_string()));
   }
 
   let mut to_remove: Vec<String> = Vec::new();
@@ -680,9 +673,7 @@ fn cmd_pre_interactive() -> Result<()> {
   .map_err(|e| OxrlsError::Other(format!("Selection failed: {}", e)))?;
 
   if selected.is_empty() {
-    return Err(OxrlsError::Other(
-      "No packages selected.".to_string(),
-    ));
+    return Err(OxrlsError::Other("No packages selected.".to_string()));
   }
 
   let tag = Text::new("Pre-release tag (e.g., beta, alpha, rc):")
