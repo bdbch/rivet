@@ -14,6 +14,26 @@ pub struct ChangelogEntry {
   pub changes: IndexMap<BumpType, Vec<String>>,
 }
 
+/// Format a multi-line change entry into a markdown list item.
+/// The first line is prefixed with `first_line_prefix`, continuation lines
+/// are indented by 2 spaces so they stay inside the list item.
+fn indent_continuations(text: &str, first_line_prefix: &str) -> String {
+  text
+    .lines()
+    .enumerate()
+    .map(|(i, line)| {
+      if i == 0 {
+        format!("{}{}", first_line_prefix, line)
+      } else if line.trim().is_empty() {
+        String::new()
+      } else {
+        format!("  {}", line)
+      }
+    })
+    .collect::<Vec<_>>()
+    .join("\n")
+}
+
 /// Generate the changelog section string for a single version.
 pub fn generate_changelog_section(entry: &ChangelogEntry) -> String {
   let mut lines = Vec::new();
@@ -34,22 +54,7 @@ pub fn generate_changelog_section(entry: &ChangelogEntry) -> String {
       lines.push(format!("### {}", heading));
       lines.push(String::new());
       for change in changes {
-        // Indent continuation lines by 2 spaces so they stay in the list item
-        let indented: String = change
-          .lines()
-          .enumerate()
-          .map(|(i, line)| {
-            if i == 0 {
-              format!("- {}", line)
-            } else if line.trim().is_empty() {
-              String::new()
-            } else {
-              format!("  {}", line)
-            }
-          })
-          .collect::<Vec<_>>()
-          .join("\n");
-        lines.push(indented);
+        lines.push(indent_continuations(change, "- "));
       }
       lines.push(String::new());
     }
@@ -63,6 +68,25 @@ pub fn generate_changelog_section(entry: &ChangelogEntry) -> String {
   lines.join("\n")
 }
 
+/// Strip the `# Changelog` header from existing changelog content.
+/// Handles standard headers, missing trailing newlines, and case variations.
+fn strip_changelog_header(content: &str) -> &str {
+  content
+    .strip_prefix("# Changelog\n\n")
+    .or_else(|| content.strip_prefix("# Changelog\n"))
+    .or_else(|| {
+      // Fallback: find any heading that starts with "# Changelog"
+      let trimmed = content.trim_start();
+      if trimmed.to_lowercase().starts_with("# changelog") {
+        let end = trimmed.find('\n').map(|i| i + 1).unwrap_or(0);
+        Some(&trimmed[end..])
+      } else {
+        None
+      }
+    })
+    .unwrap_or(content)
+}
+
 /// Update a CHANGELOG.md file with a new version entry.
 /// Creates the file if it doesn't exist, prepends the new entry if it does.
 pub fn update_changelog(changelog_path: &Path, new_section: &str) -> Result<()> {
@@ -70,10 +94,7 @@ pub fn update_changelog(changelog_path: &Path, new_section: &str) -> Result<()> 
   let content = if changelog_path.exists() {
     let existing = std::fs::read_to_string(changelog_path)
       .map_err(|e| OxrlsError::Changelog(format!("Failed to read changelog: {}", e)))?;
-    let body = existing
-      .strip_prefix("# Changelog\n\n")
-      .or_else(|| existing.strip_prefix("# Changelog\n"))
-      .unwrap_or(&existing);
+    let body = strip_changelog_header(&existing);
     format!("# Changelog\n\n{}\n\n{}", new_section, body.trim())
   } else {
     format!("# Changelog\n\n{}", new_section)
@@ -128,21 +149,8 @@ pub fn generate_global_changelog_section(
 
   for (pkg_name, version, bump_type, summaries) in packages {
     for summary in summaries {
-      // Indent continuation lines by 2 spaces
-      let entry: String = summary
-        .lines()
-        .enumerate()
-        .map(|(i, line)| {
-          if i == 0 {
-            format!("- **{}** (v{}): {}", pkg_name, version, line)
-          } else if line.trim().is_empty() {
-            String::new()
-          } else {
-            format!("  {}", line)
-          }
-        })
-        .collect::<Vec<_>>()
-        .join("\n");
+      let prefix = format!("- **{}** (v{}): ", pkg_name, version);
+      let entry = indent_continuations(summary, &prefix);
       match bump_type {
         BumpType::Major => major_entries.push(entry),
         BumpType::Minor => minor_entries.push(entry),
@@ -189,10 +197,7 @@ pub fn update_global_changelog(changelog_path: &Path, new_section: &str) -> Resu
   let content = if changelog_path.exists() {
     let existing = std::fs::read_to_string(changelog_path)
       .map_err(|e| OxrlsError::Changelog(format!("Failed to read changelog: {}", e)))?;
-    let body = existing
-      .strip_prefix("# Changelog\n\n")
-      .or_else(|| existing.strip_prefix("# Changelog\n"))
-      .unwrap_or(&existing);
+    let body = strip_changelog_header(&existing);
     format!("# Changelog\n\n{}\n\n{}", new_section, body.trim())
   } else {
     format!("# Changelog\n\n{}", new_section)
@@ -274,5 +279,60 @@ mod tests {
     assert_eq!(grouped.get(&BumpType::Patch).unwrap().len(), 2);
     assert_eq!(grouped.get(&BumpType::Minor).unwrap().len(), 1);
     assert!(grouped.get(&BumpType::Major).is_none());
+  }
+
+  #[test]
+  fn test_strip_changelog_header_standard() {
+    let content = "# Changelog\n\n## 1.0.0\n\n### Patch Changes\n\n- Fix bug\n";
+    let body = strip_changelog_header(content);
+    assert_eq!(body, "## 1.0.0\n\n### Patch Changes\n\n- Fix bug\n");
+  }
+
+  #[test]
+  fn test_strip_changelog_header_no_trailing_newline() {
+    let content = "# Changelog\n## 1.0.0\n\n- Fix bug\n";
+    let body = strip_changelog_header(content);
+    assert_eq!(body, "## 1.0.0\n\n- Fix bug\n");
+  }
+
+  #[test]
+  fn test_strip_changelog_header_case_insensitive() {
+    let content = "# CHANGELOG\n\n## 1.0.0\n\n- Fix bug\n";
+    let body = strip_changelog_header(content);
+    // The fallback strips past the first \n (right after "CHANGELOG"),
+    // leaving the blank line which the caller's .trim() removes.
+    assert_eq!(body, "\n## 1.0.0\n\n- Fix bug\n");
+  }
+
+  #[test]
+  fn test_strip_changelog_header_no_header() {
+    let content = "## 1.0.0\n\n- Fix bug\n";
+    let body = strip_changelog_header(content);
+    // No header to strip — returns original
+    assert_eq!(body, content);
+  }
+
+  #[test]
+  fn test_indent_continuations_single_line() {
+    let result = indent_continuations("Fix bug", "- ");
+    assert_eq!(result, "- Fix bug");
+  }
+
+  #[test]
+  fn test_indent_continuations_multi_line() {
+    let result = indent_continuations("Fix bug\nWith details\nMore info", "- ");
+    assert_eq!(result, "- Fix bug\n  With details\n  More info");
+  }
+
+  #[test]
+  fn test_indent_continuations_empty_lines_skipped() {
+    let result = indent_continuations("Header\n\n\nTrailing", "- ");
+    assert_eq!(result, "- Header\n\n\n  Trailing");
+  }
+
+  #[test]
+  fn test_indent_continuations_custom_prefix() {
+    let result = indent_continuations("Fix bug\nDetails", "- **pkg** (v1.0.0): ");
+    assert_eq!(result, "- **pkg** (v1.0.0): Fix bug\n  Details");
   }
 }

@@ -78,12 +78,16 @@ pub fn run_init_wizard(
   };
 
   // 5. Access
-  let _access = Select::new(
+  let access = Select::new(
     "Default npm access (can be overridden per-package via publishConfig.access):",
     vec!["public", "restricted"],
   )
   .prompt()
   .map_err(|e| OxrlsError::Other(format!("Input failed: {}", e)))?;
+  config.access = match access {
+    "restricted" => crate::config::Access::Restricted,
+    _ => crate::config::Access::Public,
+  };
   // 6. Sync Cargo.toml
   let sync_cargo = Confirm::new(
     "Sync version with Cargo.toml files alongside package.json? (useful for Rust/NAPI projects)",

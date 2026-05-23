@@ -1,8 +1,9 @@
 use crate::error::{OxrlsError, Result};
-use crate::package_json::PackageJson;
 use glob::glob;
 use indexmap::IndexMap;
 use std::path::{Path, PathBuf};
+
+use super::package_json::PackageJson;
 
 /// A discovered workspace package.
 #[derive(Debug, Clone)]
@@ -151,17 +152,23 @@ pub fn load_workspace(root: &Path) -> Result<Workspace> {
 fn get_workspace_globs(root: &Path) -> Result<Vec<String>> {
   // Check pnpm-workspace.yaml first
   let pnpm_yaml = root.join("pnpm-workspace.yaml");
-  if pnpm_yaml.exists()
-    && let Ok(content) = std::fs::read_to_string(&pnpm_yaml)
-    && let Ok(yaml) = serde_yaml::from_str::<serde_yaml::Value>(&content)
-    && let Some(packages) = yaml.get("packages").and_then(|v| v.as_sequence())
-  {
-    let globs: Vec<String> = packages
-      .iter()
-      .filter_map(|v| v.as_str().map(|s| s.to_string()))
-      .collect();
-    if !globs.is_empty() {
-      return Ok(globs);
+  if pnpm_yaml.exists() {
+    let content = std::fs::read_to_string(&pnpm_yaml).map_err(|e| {
+      OxrlsError::Workspace(format!(
+        "pnpm-workspace.yaml exists but cannot be read: {}",
+        e
+      ))
+    })?;
+    let yaml: serde_yaml::Value = serde_yaml::from_str(&content)
+      .map_err(|e| OxrlsError::Workspace(format!("pnpm-workspace.yaml has invalid YAML: {}", e)))?;
+    if let Some(packages) = yaml.get("packages").and_then(|v| v.as_sequence()) {
+      let globs: Vec<String> = packages
+        .iter()
+        .filter_map(|v| v.as_str().map(|s| s.to_string()))
+        .collect();
+      if !globs.is_empty() {
+        return Ok(globs);
+      }
     }
   }
 

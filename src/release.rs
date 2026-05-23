@@ -1,7 +1,7 @@
 use crate::bump::PlannedBump;
 use crate::config::OxrlsConfig;
 use crate::error::{OxrlsError, Result};
-use crate::package_json::PackageJson;
+use crate::workspace::PackageJson;
 use crate::workspace::Workspace;
 use indexmap::IndexMap;
 use std::path::{Path, PathBuf};
@@ -119,6 +119,7 @@ pub fn publish_manifest(
   manifest: &ReleaseManifest,
   workspace: &Workspace,
   config: &OxrlsConfig,
+  release_dir: &Path,
   dry_run: bool,
   tag_override: Option<&str>,
 ) -> Result<()> {
@@ -220,7 +221,7 @@ pub fn publish_manifest(
       would_publish, skipped
     );
   } else {
-    ReleaseManifest::remove(&workspace.root.join(".oxrls"))?;
+    ReleaseManifest::remove(release_dir)?;
     println!("\nDone! {} published, {} skipped.", published, skipped);
   }
 
