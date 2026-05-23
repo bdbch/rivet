@@ -1,5 +1,11 @@
 # Changelog
 
+## 2026-05-23
+
+### Patch Changes
+
+- **@bdbchgg/oxrls** (v1.0.0-alpha.4): Fixed a bug that caused the binary not to be included with the bundle
+
 ## 2026-05-22
 
 ### Patch Changes

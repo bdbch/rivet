@@ -1,6 +1,6 @@
 {
   "name": "@bdbchgg/oxrls",
-  "version": "1.0.0-alpha.3",
+  "version": "1.0.0-alpha.4",
   "ava": {
     "environmentVariables": {
       "OXC_TSCONFIG_PATH": "./__test__/tsconfig.json"
@@ -67,6 +67,10 @@
     "type": "git",
     "url": "git+ssh://git@github.com/napi-rs/package-template.git"
   },
+  "resolutions": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
+  },
   "scripts": {
     "artifacts": "napi artifacts",
     "bench": "node --import @oxc-node/core/register benchmark/bench.ts",
@@ -81,9 +85,5 @@
     "prepare": "vp config",
     "prepublishOnly": "napi prepublish -t npm",
     "test": "ava"
-  },
-  "resolutions": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
   }
 }
