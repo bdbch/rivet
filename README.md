@@ -24,6 +24,7 @@ Then add this to your `package.json` scripts:
   "scripts": {
     "oxrls": "oxrls", # for convenience, you can run `npm run oxrls` instead of `npx oxrls`
     "changeset": "oxrl new", # create a new release file (similar to `changeset add`)
+    "bump": "oxrls bump", # apply version bumps, update deps, generate changelogs, similar to `changeset version`
     "release": "oxrls release" # publish to npm (after bumping versions)
   }
 }
