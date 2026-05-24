@@ -23,8 +23,9 @@ steps:
   - name: "Install Node dependencies"
     command: yarn install
 
-  - name: "Install Rust targets"
+  - name: "Install Rust toolchain and targets"
     command: |
+      rustup default stable
       rustup target add \
         x86_64-apple-darwin \
         aarch64-apple-darwin \
