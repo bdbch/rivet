@@ -55,6 +55,12 @@ oxrls bump
 oxrls release
 ```
 
+## Vibecode Disclaimer
+
+This project was vibecoded. I'm still learning Rust, and I use AI agents to review code, explain patterns, and help me understand what's going on. That said, I don't just blindly trust the output: I read through every change, I understand (most of) what the code does, and I make deliberate decisions. I also enforce TDD to make sure existing features don't break as the project evolves.
+
+I'd love to get some eyes from the Rust community on best practices, patterns, and anything that could be improved. Pull requests, issues, and feedback are very welcome.
+
 ## Commands
 
 | Command         | Description                                                  |
