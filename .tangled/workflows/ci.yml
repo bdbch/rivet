@@ -38,7 +38,7 @@ steps:
       cargo clippy
 
   - name: "Build Linux x64"
-    command: npx napi build --target x86_64-unknown-linux-gnu --release --use-napi-cross
+    command: npx napi build --target x86_64-unknown-linux-gnu --release -x
 
   - name: "Build Windows x64"
     command: npx napi build --target x86_64-pc-windows-msvc --release -x
