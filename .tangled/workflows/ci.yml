@@ -1,0 +1,66 @@
+when:
+  - event: ["push", "manual"]
+    branch: ["main", "release/*"]
+  - event: ["pull_request"]
+    branch: ["main"]
+
+engine: "nixery"
+
+dependencies:
+  nixpkgs/nixpkgs-unstable:
+    - nodejs_24
+    - yarn
+    - zig
+    - llvm
+    - rustup
+    - cargo-zigbuild
+    - cargo-xwin
+
+environment:
+  CI: "true"
+
+steps:
+  - name: "Install Node dependencies"
+    command: yarn install
+
+  - name: "Install Rust targets"
+    command: |
+      rustup target add \
+        x86_64-apple-darwin \
+        aarch64-apple-darwin \
+        x86_64-pc-windows-msvc
+
+  - name: "Lint"
+    command: |
+      cargo fmt -- --check
+      cargo clippy
+
+  - name: "Build Linux x64"
+    command: npx napi build --target x86_64-unknown-linux-gnu --release --use-napi-cross
+
+  - name: "Build Windows x64"
+    command: npx napi build --target x86_64-pc-windows-msvc --release -x
+
+  - name: "Build macOS x64"
+    command: npx napi build --target x86_64-apple-darwin --release -x
+
+  - name: "Build macOS ARM64"
+    command: npx napi build --target aarch64-apple-darwin --release -x
+
+  - name: "Build CLI"
+    command: cargo build --release --bin oxrls
+
+  - name: "Test"
+    command: cargo test
+
+  - name: "Publish (release/* only)"
+    command: |
+      if [ "$TANGLED_REF_TYPE" = "branch" ] && [[ "$TANGLED_REF_NAME" == release/* ]]; then
+        npx napi create-npm-dirs
+        cp oxrls-native.linux-x64-gnu.node npm/linux-x64-gnu/
+        cp target/x86_64-apple-darwin/release/liboxrls.dylib npm/darwin-x64/oxrls-native.darwin-x64.node
+        cp target/aarch64-apple-darwin/release/liboxrls.dylib npm/darwin-arm64/oxrls-native.darwin-arm64.node
+        cp target/x86_64-pc-windows-msvc/release/oxrls.dll npm/win32-x64-msvc/oxrls-native.win32-x64-msvc.node
+        echo "//registry.npmjs.org/:_authToken=$NPM_TOKEN" >> ~/.npmrc
+        npm publish --access public --tag "${TANGLED_REF_NAME#release/}"
+      fi

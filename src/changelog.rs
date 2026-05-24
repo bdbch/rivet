@@ -134,11 +134,15 @@ pub fn group_changes_by_type(
 pub fn generate_global_changelog_section(
   packages: &[(String, semver::Version, BumpType, Vec<String>)],
 ) -> String {
-  use chrono::Utc;
+  use time::OffsetDateTime;
 
   let mut lines = Vec::new();
 
-  let date_str = Utc::now().format("%Y-%m-%d").to_string();
+  let date_format =
+    time::format_description::parse("[year]-[month]-[day]").expect("valid date format");
+  let date_str = OffsetDateTime::now_utc()
+    .format(&date_format)
+    .expect("valid date");
   lines.push(format!("## {}", date_str));
   lines.push(String::new());
 
