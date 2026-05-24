@@ -12,6 +12,7 @@ dependencies:
     - yarn
     - zig
     - llvm
+    - gcc
     - rustup
     - cargo-zigbuild
     - cargo-xwin
