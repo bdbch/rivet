@@ -1,95 +1,32 @@
 {
-  "name": "@bdbchgg/oxrls",
-  "version": "1.0.0-alpha.5",
-  "ava": {
-    "environmentVariables": {
-      "OXC_TSCONFIG_PATH": "./__test__/tsconfig.json"
-    },
-    "extensions": [
-      "ts"
-    ],
-    "nodeArguments": [
-      "--import",
-      "@oxc-node/core/register"
-    ],
-    "timeout": "2m",
-    "workerThreads": false
-  },
-  "bin": "./bin/oxrls.js",
-  "description": "Rust-powered release management for JS/TS monorepos — version bumps, changelogs, pre-release mode, and npm publishing",
-  "devDependencies": {
-    "@emnapi/core": "^1.5.0",
-    "@emnapi/runtime": "^1.5.0",
-    "@napi-rs/cli": "^3.2.0",
-    "@oxc-node/core": "^0.1.0",
-    "@taplo/cli": "^0.7.0",
-    "@tybys/wasm-util": "^0.10.0",
-    "ava": "^8.0.0",
-    "chalk": "^5.6.2",
-    "npm-run-all2": "^8.0.4",
-    "tinybench": "^6.0.0",
-    "typescript": "^6.0.0",
-    "vite-plus": "latest"
-  },
+  "name": "oxrls-monorepo",
+  "private": true,
+  "packageManager": "pnpm@11.0.0",
   "engines": {
     "node": ">= 18.17.0 < 19 || >= 20.3.0 < 21 || >= 21.1.0"
   },
-  "files": [
-    "bin/",
-    "index.js",
-    "index.d.ts"
-  ],
-  "keywords": [
-    "release",
-    "monorepo",
-    "changesets",
-    "versioning",
-    "changelog",
-    "napi-rs"
-  ],
-  "license": "MIT",
-  "main": "index.js",
-  "napi": {
-    "binaryName": "oxrls-native",
-    "targets": [
-      "x86_64-pc-windows-msvc",
-      "x86_64-apple-darwin",
-      "x86_64-unknown-linux-gnu",
-      "aarch64-apple-darwin"
-    ]
-  },
-  "optionalDependencies": {
-    "@bdbchgg/oxrls-darwin-arm64": "1.0.0-alpha.4",
-    "@bdbchgg/oxrls-darwin-x64": "1.0.0-alpha.4",
-    "@bdbchgg/oxrls-linux-x64-gnu": "1.0.0-alpha.4",
-    "@bdbchgg/oxrls-win32-x64-msvc": "1.0.0-alpha.4"
-  },
-  "packageManager": "yarn@4.14.1",
-  "publishConfig": {
-    "access": "public",
-    "registry": "https://registry.npmjs.org/"
-  },
-  "repository": {
-    "type": "git",
-    "url": "git+ssh://git@github.com/napi-rs/package-template.git"
-  },
-  "resolutions": {
-    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
-    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
-  },
   "scripts": {
-    "artifacts": "napi artifacts",
-    "bench": "node --import @oxc-node/core/register benchmark/bench.ts",
-    "build": "napi build --platform --release",
+    "artifacts": "pnpm --filter @bdbchgg/oxrls artifacts",
+    "bench": "pnpm --filter @bdbchgg/oxrls bench",
+    "build": "pnpm --filter @bdbchgg/oxrls build",
     "build:cli": "cargo build --release --bin oxrls",
-    "build:debug": "napi build --platform",
+    "build:debug": "pnpm --filter @bdbchgg/oxrls build:debug",
     "format": "run-p format:prettier format:rs format:toml",
     "format:prettier": "vp fmt .",
     "format:rs": "cargo fmt",
     "format:toml": "taplo format",
     "lint": "vp lint .",
     "prepare": "vp config",
-    "prepublishOnly": "napi prepublish -t npm",
-    "test": "ava"
+    "test": "pnpm --filter @bdbchgg/oxrls test"
+  },
+  "devDependencies": {
+    "@taplo/cli": "^0.7.0",
+    "npm-run-all2": "^8.0.4",
+    "typescript": "^6.0.0",
+    "vite-plus": "latest"
+  },
+  "resolutions": {
+    "vite": "npm:@voidzero-dev/vite-plus-core@latest",
+    "vitest": "npm:@voidzero-dev/vite-plus-test@latest"
   }
 }

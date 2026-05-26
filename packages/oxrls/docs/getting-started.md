@@ -1,6 +1,6 @@
 # Getting Started with oxrls
 
-**oxrls** (short for *oxrelease*) is a Rust-powered release management CLI for JavaScript/TypeScript monorepos. It handles version bumps, changelogs, internal dependency updates, pre-release versions, and npm publishing.
+**oxrls** (short for _oxrelease_) is a Rust-powered release management CLI for JavaScript/TypeScript monorepos. It handles version bumps, changelogs, internal dependency updates, pre-release versions, and npm publishing.
 
 ## Installation
 
@@ -76,6 +76,7 @@ oxrls release
 ```
 
 After `oxrls bump`:
+
 - Package versions are updated in `package.json`
 - Internal dependency ranges are updated
 - `CHANGELOG.md` is created/updated

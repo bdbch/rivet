@@ -64,13 +64,13 @@ Default: `"patch"`
 
 Controls when internal dependency ranges are updated:
 
-| Value | Behavior |
-|-------|----------|
-| `"always"` | Always update ranges |
-| `"patch"` | Update when dependency got at least a patch |
-| `"minor"` | Update only for minor or major |
-| `"major"` | Update only for major |
-| `"never"` | Never update |
+| Value      | Behavior                                    |
+| ---------- | ------------------------------------------- |
+| `"always"` | Always update ranges                        |
+| `"patch"`  | Update when dependency got at least a patch |
+| `"minor"`  | Update only for minor or major              |
+| `"major"`  | Update only for major                       |
+| `"never"`  | Never update                                |
 
 ### `baseBranch`
 
@@ -109,9 +109,7 @@ Supports glob patterns and `!` negation:
 
 ```json
 {
-  "linked": [
-    ["@scope/hooks", "@scope/utils"]
-  ]
+  "linked": [["@scope/hooks", "@scope/utils"]]
 }
 ```
 

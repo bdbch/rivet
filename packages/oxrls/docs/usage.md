@@ -10,11 +10,11 @@ oxrls init [OPTIONS]
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
-| `--force` | Overwrite existing config |
+| Option                | Description                                  |
+| --------------------- | -------------------------------------------- |
+| `--force`             | Overwrite existing config                    |
 | `--release-dir <DIR>` | Custom release directory (default: `.oxrls`) |
-| `--non-interactive` | Skip the config wizard and use defaults |
+| `--non-interactive`   | Skip the config wizard and use defaults      |
 
 **Interactive mode** (default): walks you through all config options step by step:
 
@@ -50,18 +50,18 @@ oxrls new \
 
 **Options:**
 
-| Option | Description |
-|--------|-------------|
+| Option                       | Description                      |
+| ---------------------------- | -------------------------------- |
 | `-p`, `--package <PKG:TYPE>` | Package + bump type (repeatable) |
-| `--summary <TEXT>` | Summary of the change |
-| `--details <TEXT>` | Optional body text |
+| `--summary <TEXT>`           | Summary of the change            |
+| `--details <TEXT>`           | Optional body text               |
 
 **Generated file:**
 
 ```markdown
 ---
-"@scope/core": patch
-"@scope/react": minor
+'@scope/core': patch
+'@scope/react': minor
 ---
 
 Improve editor behavior.
@@ -114,6 +114,7 @@ Publishes all packages from the last successful `oxrls bump` to npm.
 Reads `.oxrls/releaseplan.txt` (a plain text list of package names, one per line, alphabetically sorted).
 
 **Behavior:**
+
 - **Private packages** (`"private": true`) are skipped
 - **Version check**: verifies `package.json` version matches the expected version
 - **Exists check**: runs `npm view <pkg>@<version> version` first — skips if already published
@@ -156,6 +157,7 @@ oxrls pre status
 ```
 
 Package names support:
+
 - Exact names: `@scope/pkg-c`
 - Partial names: `pkg-c` resolves to `@scope/pkg-c` by suffix matching
 - Globs: `"@scope/pre-*"`
@@ -167,8 +169,8 @@ Package names support:
 
 ```markdown
 ---
-"@scope/pkg-a": patch
-"@scope/pkg-b": minor
+'@scope/pkg-a': patch
+'@scope/pkg-b': minor
 ---
 
 Summary of changes.
@@ -183,14 +185,14 @@ Summary of changes.
 
 ## Version bump rules
 
-| Current | Bump | Result |
-|---------|------|--------|
-| 1.2.3 | patch | 1.2.4 |
-| 1.2.3 | minor | 1.3.0 |
-| 1.2.3 | major | 2.0.0 |
-| 0.2.3 | major | 1.0.0 |
-| 0.2.3 | minor | 0.3.0 |
-| 0.2.3 | patch | 0.2.4 |
+| Current | Bump  | Result |
+| ------- | ----- | ------ |
+| 1.2.3   | patch | 1.2.4  |
+| 1.2.3   | minor | 1.3.0  |
+| 1.2.3   | major | 2.0.0  |
+| 0.2.3   | major | 1.0.0  |
+| 0.2.3   | minor | 0.3.0  |
+| 0.2.3   | patch | 0.2.4  |
 
 Multiple bumps for same package: **major > minor > patch**.
 
@@ -224,14 +226,14 @@ If one gets `minor`, all get `minor`. Each keeps its own version number.
 
 oxrls updates dependency ranges in `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`:
 
-| Original | Updated |
-|----------|---------|
-| `^1.2.3` | `^1.2.4` |
-| `~1.2.3` | `~1.2.4` |
-| `1.2.3` | `1.2.4` |
-| `workspace:*` | `workspace:*` |
-| `workspace:^` | `workspace:^` |
-| `workspace:~` | `workspace:~` |
+| Original           | Updated            |
+| ------------------ | ------------------ |
+| `^1.2.3`           | `^1.2.4`           |
+| `~1.2.3`           | `~1.2.4`           |
+| `1.2.3`            | `1.2.4`            |
+| `workspace:*`      | `workspace:*`      |
+| `workspace:^`      | `workspace:^`      |
+| `workspace:~`      | `workspace:~`      |
 | `workspace:^1.2.3` | `workspace:^1.2.4` |
 
 ---
@@ -280,11 +282,11 @@ oxrls pre                     # interactive
 
 Version examples:
 
-| Bump | Without pre | With pre (beta) |
-|------|-------------|-----------------|
-| patch | `1.2.4` | `1.2.4-beta.1` |
-| minor | `1.3.0` | `1.3.0-beta.1` |
-| major | `2.0.0` | `2.0.0-beta.1` |
+| Bump  | Without pre | With pre (beta) |
+| ----- | ----------- | --------------- |
+| patch | `1.2.4`     | `1.2.4-beta.1`  |
+| minor | `1.3.0`     | `1.3.0-beta.1`  |
+| major | `2.0.0`     | `2.0.0-beta.1`  |
 
 Pre-release tag is used as the npm dist-tag during `oxrls release`:
 
@@ -298,6 +300,6 @@ oxrls release --tag next  # overrides to --tag next
 ## Exit codes
 
 | Code | Meaning |
-|------|---------|
-| 0 | Success |
-| 1 | Error |
+| ---- | ------- |
+| 0    | Success |
+| 1    | Error   |
