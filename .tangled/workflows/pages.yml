@@ -8,6 +8,7 @@ dependencies:
   nixpkgs/nixpkgs-unstable:
     - nodejs_24
     - pnpm
+    - gnused
 
 environment:
   CI: 'true'
