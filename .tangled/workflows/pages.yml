@@ -25,7 +25,12 @@ steps:
 
   - name: 'Push to tangled-pages branch'
     command: |
+      # Tangled CI only has origin via HTTPS. Pushes require SSH.
+      # Extract the repo path from the HTTPS URL and convert to SSH format.
       REMOTE_URL=$(git remote get-url origin)
+      # e.g. https://knot1.tangled.sh/did:plc:.../  →  git@tangled.org:did:plc:...
+      REMOTE_URL="git@tangled.org:${REMOTE_URL#https://*/}"
+      REMOTE_URL="${REMOTE_URL%/}"
       cd apps/docs/out
       git init
       git checkout --orphan tangled-pages
