@@ -9,6 +9,7 @@ dependencies:
     - nodejs_24
     - pnpm
     - gnused
+    - openssh
 
 environment:
   CI: 'true'
