@@ -1,0 +1,214 @@
+---
+title: Configuration
+description: All configuration options for oxrls
+---
+
+oxrls looks for configuration in the following locations (in order of priority):
+
+1. `.oxrls/config.json` — in the project root or any parent directory
+2. `oxrls.json` — in the project root or any parent directory
+3. `.oxrls.json` — hidden file variant
+
+If no config file is found, oxrls uses sensible defaults.
+
+## Default config
+
+```json
+{
+  "$schema": "https://oxrelease.dev/schema.json",
+  "releaseDir": ".oxrls",
+  "changelog": true,
+  "generatePackagesChangelog": true,
+  "generateGlobalChangelog": false,
+  "updateInternalDependencies": "patch",
+  "baseBranch": "main",
+  "access": "public",
+  "syncCargoToml": false,
+  "fixed": [],
+  "linked": [],
+  "preMode": []
+}
+```
+
+## Options
+
+### `releaseDir`
+
+Default: `".oxrls"`
+
+The directory where release files, pre-release state, and the release plan are stored.
+
+```json
+{ "releaseDir": ".oxrls" }
+```
+
+You can change this if you prefer a different name:
+
+```json
+{ "releaseDir": ".changes" }
+```
+
+### `changelog` (legacy)
+
+Default: `true`
+
+Setting this to `false` disables all changelog generation, regardless of the more specific flags below. This exists for backward compatibility.
+
+```json
+{ "changelog": false }
+```
+
+### `generatePackagesChangelog`
+
+Default: `true`
+
+Generate individual `CHANGELOG.md` files per workspace package.
+
+```json
+{ "generatePackagesChangelog": false }
+```
+
+### `generateGlobalChangelog`
+
+Default: `false`
+
+Generate a single `CHANGELOG.md` at the project root aggregating all package changes.
+
+```json
+{ "generateGlobalChangelog": true }
+```
+
+**Solo repo fallback**: if the workspace has only one package and per-package changelogs are enabled, oxrls automatically generates a global changelog instead.
+
+### `updateInternalDependencies`
+
+Default: `"patch"`
+
+Controls when internal dependency ranges are updated for workspace packages that depend on each other.
+
+| Value      | Behavior                                    |
+| ---------- | ------------------------------------------- |
+| `"always"` | Always update ranges                        |
+| `"patch"`  | Update when dependency got at least a patch |
+| `"minor"`  | Update only for minor or major              |
+| `"major"`  | Update only for major                       |
+| `"never"`  | Never update                                |
+
+```json
+{ "updateInternalDependencies": "minor" }
+```
+
+### `baseBranch`
+
+Default: `"main"`
+
+The base branch of your repository. Used for changelog integration.
+
+```json
+{ "baseBranch": "main" }
+```
+
+### `access`
+
+Default: `"public"`
+
+The default npm access level for publishing. Can be overridden per-package via `publishConfig.access` in `package.json`.
+
+| Value          | Description                        |
+| -------------- | ---------------------------------- |
+| `"public"`     | Publicly accessible on npm         |
+| `"restricted"` | Restricted (requires authentication) |
+
+```json
+{ "access": "restricted" }
+```
+
+### `syncCargoToml`
+
+Default: `false`
+
+When enabled, oxrls also bumps the version in `Cargo.toml` files that are found alongside `package.json`. This is useful for Rust projects that also publish npm packages (e.g., napi-rs projects).
+
+```json
+{ "syncCargoToml": true }
+```
+
+### `fixed`
+
+Default: `[]`
+
+Groups of packages that **always share the same version**. When any package in a fixed group is bumped, all packages in that group are bumped to the same new version (the highest current version + the highest bump type in the group).
+
+Supports glob patterns and `!` negation:
+
+```json
+{
+  "fixed": [
+    ["@scope/core", "@scope/utils"],
+    ["@scope/design-system", "@scope/theme"],
+    ["@scope/*", "!@scope/standalone"]
+  ]
+}
+```
+
+If `@scope/core` is bumped to `1.3.0` and `@scope/utils` is at `1.2.0`, both end up at `1.3.0`.
+
+### `linked`
+
+Default: `[]`
+
+Groups of packages that **share the same bump type**. When a package in a linked group receives a bump, all packages in that group get the highest bump type found in the group. Each keeps its own version number.
+
+This is a unique oxrls feature — it sits between "completely independent" and "always the same version" (fixed groups).
+
+Supports glob patterns and `!` negation:
+
+```json
+{
+  "linked": [
+    ["@scope/hooks", "@scope/utils"],
+    ["@scope/ui/*", "!@scope/ui-legacy"]
+  ]
+}
+```
+
+If `@scope/hooks` gets a `minor` bump and `@scope/utils` gets a `patch`, both are treated as `minor`. Each increments from its own current version.
+
+### `preMode`
+
+Default: `[]`
+
+Pre-release mode configuration. Packages listed here automatically produce pre-release versions during bump. See the [Pre-releases](/docs/pre-releases) page for full details.
+
+```json
+{
+  "preMode": [
+    {
+      "tag": "beta",
+      "packages": ["@scope/experimental-*", "@scope/new-feature"]
+    },
+    {
+      "tag": "alpha",
+      "packages": ["@scope/early-access-*"]
+    }
+  ]
+}
+```
+
+Different packages can have different pre-release tags. A package can only be in one pre-mode at a time.
+
+## Creating config
+
+```bash
+# Interactive wizard
+oxrls init
+
+# Specify custom release directory
+oxrls init --release-dir .changes
+
+# Skip wizard, use defaults
+oxrls init --non-interactive
+
+# Overwrite existing config
+oxrls init --force
+```

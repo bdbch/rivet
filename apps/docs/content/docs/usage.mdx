@@ -1,0 +1,309 @@
+---
+title: Command Reference
+description: Complete reference for all oxrls commands and their options
+---
+
+## `oxrls init`
+
+Initialize oxrls configuration in your project.
+
+```bash
+oxrls init [OPTIONS]
+```
+
+**Options:**
+
+| Option                | Description                                  |
+| --------------------- | -------------------------------------------- |
+| `--force`             | Overwrite existing config                    |
+| `--release-dir <DIR>` | Custom release directory (default: `.oxrls`) |
+| `--non-interactive`   | Skip the config wizard and use defaults      |
+
+**Interactive mode** (default): walks you through all config options step by step via a terminal wizard:
+
+1. Release directory
+2. Changelog preferences (per-package, global, or none)
+3. Base branch
+4. Internal dependency update strategy
+5. Default npm access
+6. Cargo.toml sync (toggle on/off)
+7. Linked package groups (monorepo only)
+8. Fixed package groups (monorepo only)
+
+**Non-interactive mode** creates config with defaults.
+
+---
+
+## `oxrls new`
+
+Create a new release file describing version bumps for one or more packages.
+
+```bash
+oxrls new [OPTIONS]
+```
+
+**Interactive mode** (no flags): select packages from your workspace, choose one bump type for all, enter summary + optional details.
+
+**Non-interactive mode:**
+
+```bash
+oxrls new --package @scope/core:patch --summary "Fix bug"
+oxrls new \
+  --package @scope/core:patch \
+  --package @scope/react:minor \
+  --summary "Improve editor behavior"
+```
+
+**Options:**
+
+| Option                       | Description                      |
+| ---------------------------- | -------------------------------- |
+| `-p`, `--package <PKG:TYPE>` | Package + bump type (repeatable) |
+| `--summary <TEXT>`           | Summary of the change            |
+| `--details <TEXT>`           | Optional body text               |
+
+**Generated file:**
+
+```markdown
+---
+'@scope/core': patch
+'@scope/react': minor
+---
+
+Improve editor behavior.
+```
+
+Files use random descriptive names like `a3f2-calm-fox.md`.
+
+**Release file format rules:**
+
+- Frontmatter is required (delimited by `---`)
+- Bump types: `patch`, `minor`, `major`
+- Body must not be empty
+- Unknown packages produce a clear error
+
+---
+
+## `oxrls status`
+
+Show pending release files and their calculated version bumps.
+
+```bash
+oxrls status
+```
+
+Displays:
+
+- All pending `.md` files in the release directory
+- Parsed bump types per package
+- Calculated version bumps (same logic as `bump --dry-run`)
+
+---
+
+## `oxrls bump`
+
+Consume all pending release files and apply version bumps.
+
+```bash
+oxrls bump [--dry-run] [--archive]
+```
+
+**Options:**
+
+| Option      | Description                                                    |
+| ----------- | -------------------------------------------------------------- |
+| `--dry-run` | Preview changes without writing anything                       |
+| `--archive` | Move consumed release files to `.oxrls/archive/` instead of deleting |
+
+**Process:**
+
+1. Read and validate all pending release files
+2. Merge bump types (major > minor > patch)
+3. Resolve pre-release tags and counters
+4. Apply fixed and linked group constraints
+5. Compute new versions
+6. Update `package.json` versions
+7. Update internal dependency ranges in dependent packages
+8. Generate or update `CHANGELOG.md` files
+9. Save release plan for `oxrls release`
+10. Consume release files (delete or archive)
+
+**Safety**: read everything → validate → compute plan → write files. If anything fails, nothing is written.
+
+---
+
+## `oxrls check`
+
+CI-friendly status check. Designed for release pipelines.
+
+```bash
+oxrls check
+```
+
+**Exit codes:**
+
+| Exit code | Status             | Meaning                                    |
+| --------- | ------------------ | ------------------------------------------ |
+| 0         | `PendingReleases`  | Release files exist — run `bump`           |
+| 1         | `ReadyToRelease`   | Release plan exists — run `release`        |
+| 0         | `NothingToRelease` | Nothing pending, nothing to do             |
+
+**Example CI workflow:**
+
+```yaml
+# After merging a PR with release files:
+oxrls check     # exits 0
+oxrls bump      # applies bumps, creates releaseplan.txt
+git commit -am "chore: bump versions"
+git push
+
+# Then trigger publish step:
+oxrls check     # exits 1 (ReadyToRelease)
+oxrls release   # publishes to npm
+```
+
+---
+
+## `oxrls release`
+
+Publish bumped packages to npm.
+
+```bash
+oxrls release [--dry-run] [--tag <TAG>]
+```
+
+**Options:**
+
+| Option      | Description                    |
+| ----------- | ------------------------------ |
+| `--dry-run` | Preview without publishing     |
+| `--tag`     | Override npm dist-tag for all packages |
+
+Reads `.oxrls/releaseplan.txt` — a plain text list of package names, one per line, alphabetically sorted. This file is created by `oxrls bump`.
+
+**Behavior:**
+
+| Condition | Action |
+| --------- | ------ |
+| Private package (`"private": true`) | Skipped |
+| Version mismatch | Error — `package.json` version must match expected |
+| Already published | Skipped (checks `npm view <pkg>@<version> version`) |
+| No dist-tag override | Uses pre-release tag from version, or `"latest"` |
+| Pre-release version | Auto-tagged with pre-release tag |
+| Custom registry | Reads `publishConfig.registry` from `package.json` |
+| Access level | Reads `publishConfig.access` → falls back to config |
+
+After successful publishing, `releaseplan.txt` is removed.
+
+```bash
+oxrls release --dry-run        # preview
+oxrls release                   # publish everything
+oxrls release --tag next        # override dist-tag for all packages
+```
+
+---
+
+## `oxrls pre`
+
+Manage pre-release mode for packages.
+
+```bash
+oxrls pre [SUBCOMMAND]
+```
+
+**Interactive mode** (no subcommand): select packages from a list, then enter a tag name (defaults to `beta`).
+
+### `oxrls pre enter`
+
+Enter pre-release mode for one or more packages.
+
+```bash
+oxrls pre enter <TAG> --package <PATTERN> [OPTIONS]
+```
+
+| Flag | Description |
+| ---- | ----------- |
+| `--package` / `-p` | Package name or glob pattern (repeatable) |
+| `--force` | Force migration when package is already in pre-mode under a different tag |
+
+```bash
+# Enter beta for a single package
+oxrls pre enter beta --package @scope/pkg-c
+
+# Enter beta for multiple packages
+oxrls pre enter beta --package @scope/pkg-c --package @scope/pkg-d
+
+# Enter beta using a glob pattern
+oxrls pre enter beta --package "@scope/pre-*"
+
+# Migrate from one tag to another
+oxrls pre enter rc --package @scope/pkg-c --force
+```
+
+### `oxrls pre exit`
+
+Exit pre-release mode for one or more packages.
+
+```bash
+oxrls pre exit --package <PATTERN>
+```
+
+```bash
+oxrls pre exit --package @scope/pkg-c
+oxrls pre exit --package "@scope/pre-*"
+```
+
+### `oxrls pre status`
+
+Show the current pre-release state for all packages.
+
+```bash
+oxrls pre status
+```
+
+**Package name resolution** works across all `pre` subcommands:
+
+| Input | Matches |
+| ----- | ------- |
+| `@scope/pkg-c` | Exact name |
+| `pkg-c` | Suffix match — resolves to `@scope/pkg-c` |
+| `"@scope/pre-*"` | Glob pattern |
+| `"!@scope/special"` | Negation (in config only) |
+
+---
+
+## Version bump rules
+
+| Current | Bump  | Result |
+| ------- | ----- | ------ |
+| `1.2.3` | patch | `1.2.4` |
+| `1.2.3` | minor | `1.3.0` |
+| `1.2.3` | major | `2.0.0` |
+| `0.2.3` | major | `1.0.0` |
+| `0.2.3` | minor | `0.3.0` |
+| `0.2.3` | patch | `0.2.4` |
+
+Multiple bumps for the same package: **major > minor > patch**. If a package receives both a `patch` and a `major` bump, the `major` wins.
+
+## Internal dependency updates
+
+oxrls updates dependency ranges in `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`:
+
+| Original           | Updated            |
+| ------------------ | ------------------ |
+| `^1.2.3`           | `^1.2.4`           |
+| `~1.2.3`           | `~1.2.4`           |
+| `1.2.3`            | `1.2.4`            |
+| `workspace:*`      | `workspace:*`      |
+| `workspace:^`      | `workspace:^`      |
+| `workspace:~`      | `workspace:~`      |
+| `workspace:^1.2.3` | `workspace:^1.2.4` |
+
+oxrls uses range intelligence to avoid false matches — it will not match `^1.2.3` inside `^1.2.30` when updating to `1.2.4`.
+
+## Exit codes
+
+| Code | Meaning |
+| ---- | ------- |
+| 0    | Success |
+| 1    | Error or `ReadyToRelease` (check command) |

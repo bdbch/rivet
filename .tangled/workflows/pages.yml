@@ -1,0 +1,36 @@
+when:
+  - event: ['push', 'manual']
+    branch: ['main']
+
+engine: 'nixery'
+
+dependencies:
+  nixpkgs/nixpkgs-unstable:
+    - nodejs_24
+    - pnpm
+
+environment:
+  CI: 'true'
+
+steps:
+  - name: 'Install Node dependencies'
+    command: pnpm install
+
+  - name: 'Build static site'
+    command: pnpm --filter docs build
+
+  - name: 'Verify static output'
+    command: test -f apps/docs/out/index.html
+
+  - name: 'Push to tangled-pages branch'
+    command: |
+      REMOTE_URL=$(git remote get-url origin)
+      cd apps/docs/out
+      git init
+      git checkout --orphan tangled-pages
+      git add -A
+      git config user.name "tangled-bot"
+      git config user.email "bot@tangled.sh"
+      git commit -m "deploy: ${TANGLED_COMMIT_SHA:-$(date -u +%Y-%m-%dT%H:%M:%SZ)}"
+      git remote add origin "$REMOTE_URL"
+      git push origin tangled-pages --force

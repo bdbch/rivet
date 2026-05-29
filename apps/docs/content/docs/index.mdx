@@ -1,0 +1,167 @@
+---
+title: Getting Started
+description: Install from npm and run your first release with oxrls
+---
+
+**oxrls** (short for _oxrelease_) is a Rust-powered release management CLI for JavaScript/TypeScript monorepos. It handles version bumps, changelogs, internal dependency updates, pre-release versions, and npm publishing.
+
+## Install from npm
+
+Install oxrls as a dev dependency in your project:
+
+```bash
+npm install @bdbchgg/oxrls --save-dev
+```
+
+Or with pnpm:
+
+```bash
+pnpm add @bdbchgg/oxrls --save-dev
+```
+
+Or with yarn:
+
+```bash
+yarn add @bdbchgg/oxrls --dev
+```
+
+## Add to package.json
+
+Add oxrls commands to your `package.json` scripts for convenience:
+
+```json
+{
+  "scripts": {
+    "oxrls": "oxrls",
+    "changeset": "oxrls new",
+    "bump": "oxrls bump",
+    "release": "oxrls release"
+  }
+}
+```
+
+Now you can run `npm run oxrls` (or `pnpm oxrls`) instead of `npx oxrls`.
+
+Once installed, verify it works:
+
+```bash
+npx oxrls --help
+```
+
+## Initialize
+
+```bash
+oxrls init
+```
+
+This starts an interactive wizard that sets up your project step by step:
+
+1. **Release directory** — where release files are stored (default: `.oxrls`)
+2. **Changelog preferences** — per-package, global, or none
+3. **Base branch** — usually `main`
+4. **Internal dependency strategy** — when to update cross-package versions
+5. **npm access** — `public` or `restricted`
+6. **Cargo.toml sync** — whether to bump Rust crate versions alongside npm packages
+7. **Linked groups** — packages that share the same bump type
+8. **Fixed groups** — packages that always share the same version
+
+The wizard creates `.oxrls/config.json` with your settings.
+
+You can also skip the wizard:
+
+```bash
+oxrls init --non-interactive
+```
+
+## Create a release file
+
+```bash
+# Interactive — select packages, choose bump type, write summary
+oxrls new
+
+# Non-interactive
+oxrls new --package @scope/core:patch --summary "Fix transaction mapping bug"
+
+# Multiple packages
+oxrls new \
+  --package @scope/core:patch \
+  --package @scope/react:minor \
+  --summary "Improve editor behavior"
+```
+
+This creates a markdown release file in `.oxrls/` with a descriptive name like `a3f2-calm-fox.md`.
+
+## Preview and bump
+
+```bash
+# See pending release files and calculated bumps
+oxrls status
+
+# Preview what would happen
+oxrls bump --dry-run
+
+# Apply version bumps, update deps, generate changelogs
+oxrls bump
+```
+
+The `bump` command:
+
+1. Reads and validates all pending release files
+2. Merges bump types (major > minor > patch)
+3. Resolves fixed and linked group constraints
+4. Applies pre-release tags if configured
+5. Updates all `package.json` versions
+6. Updates internal dependency ranges
+7. Generates changelogs
+8. Saves a release plan for the next step
+
+If anything fails, nothing is written.
+
+## Publish
+
+```bash
+# Publish all bumped packages to npm
+oxrls release
+
+# Preview without publishing
+oxrls release --dry-run
+
+# Publish with a custom dist-tag
+oxrls release --tag next
+```
+
+oxrls handles the details:
+
+- Skips private packages
+- Checks if a version already exists on the registry before publishing
+- Reads `publishConfig.access` and `publishConfig.registry` from each package's `package.json`
+- Uses the right dist-tag (pre-release tag, `--tag` override, or `latest`)
+
+## Full workflow example
+
+```bash
+# Install
+npm install @bdbchgg/oxrls --save-dev
+
+# Initialize
+oxrls init
+
+# Record changes
+oxrls new --package @scope/core:patch --summary "Fix transaction mapping bug"
+
+# Preview
+oxrls status
+oxrls bump --dry-run
+
+# Apply
+oxrls bump
+
+# Publish
+oxrls release
+```
+
+## Requirements
+
+- Node.js 18+ project with `package.json`
+- npm, pnpm, or yarn for publishing
+- A Git repository (for changelog integration)

@@ -74,11 +74,7 @@ I'd love to get some eyes from the Rust community on best practices, patterns, a
 
 ## Documentation
 
-See the [docs/](./docs/) directory:
-
-- [Getting Started](./docs/getting-started.md) — installation, quick start, workflow
-- [Configuration](./docs/configuration.md) — all config options (changelog, pre-mode, fixed/linked groups)
-- [Usage](./docs/usage.md) — full command reference, release files, version rules, internals
+See the full documentation at [oxrls.dev](https://oxrls.dev) or browse the [docs app](./apps/docs) in this repository.
 
 ## Build
 

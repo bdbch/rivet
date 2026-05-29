@@ -15,6 +15,9 @@
     "format:prettier": "vp fmt .",
     "format:rs": "cargo fmt",
     "format:toml": "taplo format",
+    "docs:dev": "vp run docs#dev",
+    "docs:build": "vp run docs#build",
+    "docs:start": "vp run docs#start",
     "lint": "vp lint .",
     "prepare": "vp config",
     "test": "pnpm --filter @bdbchgg/oxrls test"

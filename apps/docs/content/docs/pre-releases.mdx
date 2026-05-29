@@ -1,0 +1,137 @@
+---
+title: Pre-releases
+description: Manage alpha, beta, and rc releases with oxrls
+---
+
+oxrls has built-in support for pre-release versions (alpha, beta, rc, or any tag you define). Pre-release versions are useful for testing changes before a stable release.
+
+## How it works
+
+When a package is in pre-release mode, `oxrls bump` produces versions like `1.2.4-beta.1` instead of `1.2.4`. The pre-release tag is also used as the npm dist-tag during `oxrls release`.
+
+## Configuration
+
+You can configure pre-release mode in two ways:
+
+### Via config file
+
+Add `preMode` entries to your `.oxrls/config.json`:
+
+```json
+{
+  "preMode": [
+    {
+      "tag": "beta",
+      "packages": ["@scope/experimental-*"]
+    },
+    {
+      "tag": "alpha",
+      "packages": ["@scope/early-access-*"]
+    }
+  ]
+}
+```
+
+Each entry specifies a tag and the packages it applies to. Package names support glob patterns and `!` negation:
+
+```json
+{
+  "preMode": [
+    {
+      "tag": "rc",
+      "packages": ["@scope/*", "!@scope/stable-core"]
+    }
+  ]
+}
+```
+
+A package can only belong to one pre-mode entry at a time.
+
+### Via CLI
+
+Use the `pre` command for interactive management:
+
+```bash
+# Interactive: select packages and enter a tag
+oxrls pre
+
+# Enter pre-release mode
+oxrls pre enter beta --package @scope/pkg-c
+oxrls pre enter beta --package @scope/pkg-c --package @scope/pkg-d
+oxrls pre enter beta --package "@scope/pre-*"
+
+# Migrate from one tag to another
+oxrls pre enter rc --package @scope/pkg-c --force
+
+# Exit pre-release mode
+oxrls pre exit --package @scope/pkg-c
+oxrls pre exit --package "@scope/pre-*"
+
+# Show current status
+oxrls pre status
+```
+
+Package name resolution supports:
+
+- **Exact names**: `@scope/pkg-c`
+- **Partial names**: `pkg-c` resolves to `@scope/pkg-c` by suffix matching
+- **Globs**: `"@scope/pre-*"`
+- **Negation**: `"!@scope/special"` (in config only)
+
+## Version behavior
+
+When `oxrls bump` runs, pre-release versions are computed as follows:
+
+| Current version | Bump   | Result           |
+| --------------- | ------ | ---------------- |
+| `1.2.3`         | patch  | `1.2.4-beta.1`   |
+| `1.2.3`         | minor  | `1.3.0-beta.1`   |
+| `1.2.3`         | major  | `2.0.0-beta.1`   |
+| `1.2.4-beta.1`  | patch  | `1.2.4-beta.2`   |
+| `1.2.4-beta.5`  | minor  | `1.2.4-beta.6`   |
+
+Key behaviors:
+
+- **First pre-release bump**: The base version is bumped first (e.g., `1.2.3` → `1.2.4`), then the tag is appended with counter 1.
+- **Subsequent bumps**: Only the pre-release counter increments. The base version stays the same.
+- **Tag migration**: Moving from `beta` to `rc` resets the counter to 1 (`1.2.4-rc.1`).
+- **Exit pre-release mode**: The version drops the tag entirely (`1.2.4-beta.3` → `1.2.4`).
+
+## State file
+
+Pre-release state is stored in `.oxrls/pre.json`:
+
+```json
+{
+  "@scope/pkg-c": { "tag": "beta", "count": 3 },
+  "@scope/pkg-d": { "tag": "alpha", "count": 1 }
+}
+```
+
+This file is managed automatically during `oxrls bump`.
+
+### Atomic counters
+
+The pre-release counter is **only saved after all file writes succeed**. If `oxrls bump` fails partway through, the counter does not increment. This means a retry produces the same pre-release version — no wasted pre-release numbers.
+
+## Publishing
+
+Pre-release versions are published with the appropriate npm dist-tag:
+
+```bash
+# Automatically uses the pre-release tag (e.g., --tag beta)
+oxrls release
+
+# Override the dist-tag
+oxrls release --tag next
+```
+
+If a package has a pre-release version like `2.0.0-rc.1`, oxrls publishes with `--tag rc` automatically.
+
+## Mixed pre-release and stable
+
+A single `oxrls bump` can handle both pre-release and stable packages:
+
+- Pre-release packages get their tagged versions
+- Stable packages get normal versions
+- Changelogs are generated for both, but pre-release entries are consumed without generating duplicate entries on the next cycle

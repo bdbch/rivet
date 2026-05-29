@@ -1,0 +1,105 @@
+---
+title: oxrls vs Changesets
+description: How oxrls differs from Changesets
+---
+
+oxrls follows the same release file workflow that Changesets popularized (create release files → bump → publish), but it makes different design choices in a few areas.
+
+## Globbing for groups
+
+oxrls supports glob patterns and `!` negation in all package-name lists in the config — `fixed`, `linked`, and `preMode`.
+
+In Changesets, you list exact package names:
+
+```json
+{
+  "fixed": [["@scope/core", "@scope/utils"]]
+}
+```
+
+In oxrls, you can use globs:
+
+```json
+{
+  "fixed": [
+    ["@scope/core", "@scope/utils"],
+    ["@scope/*", "!@scope/standalone"]
+  ]
+}
+```
+
+This means you can define a fixed or linked group for all packages under a scope without updating the config when new packages are added. The same glob support applies to `preMode` package patterns.
+
+## Linked groups
+
+Changesets supports `fixed` groups (same version for all members). oxrls adds `linked` groups — packages that share the same bump type but keep their own version numbers.
+
+```json
+{
+  "linked": [["@scope/hooks", "@scope/utils"]]
+}
+```
+
+If `@scope/hooks` gets a `minor` bump and `@scope/utils` gets a `patch`, both are treated as `minor`. Each increments from its own current version. This is useful when packages are tightly coupled but don't need to be version-locked.
+
+## Per-package pre-release mode
+
+In Changesets, pre-release is usually a global mode — either the whole repo is in pre-release or it isn't.
+
+oxrls takes a per-package approach. Different packages can have different pre-release tags simultaneously:
+
+```json
+{
+  "preMode": [
+    { "tag": "beta", "packages": ["@scope/experimental-*"] },
+    { "tag": "alpha", "packages": ["@scope/early-access-*"] }
+  ]
+}
+```
+
+You can also manage this via CLI:
+
+```bash
+oxrls pre enter beta --package @scope/core
+oxrls pre enter alpha --package @scope/experimental-feature
+```
+
+And a single `oxrls bump` can handle a mix of pre-release and stable packages in one run.
+
+## Other differences
+
+### `syncCargoToml`
+
+oxrls can bump versions in `Cargo.toml` alongside `package.json` — useful for Rust + npm projects (napi-rs, Tauri, etc.).
+
+### CI check command
+
+oxrls has a `check` command designed for multi-step CI pipelines. It uses exit codes to signal the current state:
+
+```bash
+oxrls check   # exit 0 = pending or nothing, exit 1 = ready to release
+```
+
+### Pre-release counters
+
+oxrls saves pre-release counters only after all file writes succeed. If a `bump` fails partway through, the counter is not incremented — a retry produces the same version. This avoids wasting pre-release numbers on failed runs.
+
+### Internal dependency strategies
+
+oxrls lets you control when internal dependency ranges update:
+
+| Strategy | Behavior |
+| -------- | -------- |
+| `patch`  | Update when dependency got at least a patch (default) |
+| `minor`  | Update only for minor or major |
+| `major`  | Update only for major |
+| `always` | Always update |
+| `never`  | Never update |
+
+### Random file names
+
+Release files get descriptive names like `a3f2-calm-fox.md` instead of timestamp-based names.
+
+### Archive mode
+
+`oxrls bump --archive` moves consumed release files to `.oxrls/archive/` instead of deleting them.
