@@ -60,9 +60,11 @@ Setting this to `false` disables all changelog generation, regardless of the mor
 
 ### `generatePackagesChangelog`
 
-Default: `true`
+Default: `true` (monorepo only)
 
-Generate individual `CHANGELOG.md` files per workspace package.
+Generate individual `CHANGELOG.md` files per workspace package. This option only applies
+to monorepos — in single-package projects the setting is ignored and a root-level
+`CHANGELOG.md` is always produced.
 
 ```json
 { "generatePackagesChangelog": false }
@@ -70,15 +72,15 @@ Generate individual `CHANGELOG.md` files per workspace package.
 
 ### `generateGlobalChangelog`
 
-Default: `false`
+Default: `false` (monorepo only)
 
 Generate a single `CHANGELOG.md` at the project root aggregating all package changes.
+This option only applies to monorepos — in single-package projects the setting is
+ignored and a root-level `CHANGELOG.md` is always produced.
 
 ```json
 { "generateGlobalChangelog": true }
 ```
-
-**Solo repo fallback**: if the workspace has only one package and per-package changelogs are enabled, oxrls automatically generates a global changelog instead.
 
 ### `updateInternalDependencies`
 

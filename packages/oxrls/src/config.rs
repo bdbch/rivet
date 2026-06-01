@@ -166,8 +166,10 @@ impl OxrlsConfig {
   ///
   /// Rules:
   /// - Legacy `changelog: false` disables all changelog generation.
-  /// - In a solo repo (single package), `per_package` falls back to `global`.
-  /// - If both are false, no changelog is generated.
+  /// - In a solo repo (single package, non-monorepo), `generate_packages_changelog`
+  ///   and `generate_global_changelog` are monorepo-only concepts — a root-level
+  ///   `CHANGELOG.md` is always produced when changelogs are enabled.
+  /// - In a monorepo, the two flags control per-package and/or global generation.
   pub fn changelog_mode(&self, is_solo_repo: bool) -> ChangelogMode {
     // Legacy `changelog: false` disables changelogs entirely
     if !self.changelog {
@@ -177,20 +179,19 @@ impl OxrlsConfig {
       };
     }
 
-    let per_package = self.generate_packages_changelog;
-    let global = self.generate_global_changelog;
-
-    if is_solo_repo && per_package && !global {
-      // Solo repo falls back to global
-      ChangelogMode {
+    // Solo (non-monorepo) repos: always produce a root-level CHANGELOG.md.
+    // Per-package vs global distinction is irrelevant for a single package.
+    if is_solo_repo {
+      return ChangelogMode {
         per_package: false,
         global: true,
-      }
-    } else {
-      ChangelogMode {
-        per_package,
-        global,
-      }
+      };
+    }
+
+    // Monorepo: respect the explicit per-package / global flags.
+    ChangelogMode {
+      per_package: self.generate_packages_changelog,
+      global: self.generate_global_changelog,
     }
   }
 }
@@ -305,12 +306,39 @@ mod tests {
   }
 
   #[test]
-  fn test_changelog_mode_solo_falls_back_to_global() {
+  fn test_changelog_mode_solo_always_global() {
     let config = OxrlsConfig::default();
     let mode = config.changelog_mode(true);
-    // Solo repo: per_package falls back to global
+    // Solo repo: always produces a global changelog regardless of flags
     assert!(!mode.per_package);
     assert!(mode.global);
+  }
+
+  #[test]
+  fn test_changelog_mode_solo_both_flags_false_still_generates() {
+    // The specific bug scenario: init wizard sets both flags false in solo mode,
+    // but changelogs are enabled. Should still produce a global changelog.
+    let config = OxrlsConfig {
+      generate_packages_changelog: false,
+      generate_global_changelog: false,
+      changelog: true,
+      ..Default::default()
+    };
+    let mode = config.changelog_mode(true);
+    assert!(!mode.per_package);
+    assert!(mode.global);
+  }
+
+  #[test]
+  fn test_changelog_mode_solo_legacy_false_disables() {
+    // Solo repo with legacy changelog: false — no changelog at all.
+    let config = OxrlsConfig {
+      changelog: false,
+      ..Default::default()
+    };
+    let mode = config.changelog_mode(true);
+    assert!(!mode.per_package);
+    assert!(!mode.global);
   }
 
   #[test]

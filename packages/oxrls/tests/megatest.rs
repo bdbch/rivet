@@ -332,3 +332,144 @@ fn test_full_user_flow_init_pre_mode_bump() {
 
   println!("\n✅ Megatest passed: all 8 phases verified successfully!");
 }
+
+// ---------------------------------------------------------------------------
+// Solo repo changelog test — verifies that `oxrls bump` in a non-monorepo
+// always produces a root-level CHANGELOG.md when changelogs are enabled,
+// regardless of the generate_packages_changelog / generate_global_changelog flags.
+// This is a regression test for the bug where both flags being false in a
+// solo repo (as produced by the init wizard) resulted in no changelog at all.
+// ---------------------------------------------------------------------------
+
+fn scaffold_solo_repo(tmp: &TempDir) {
+  let root = tmp.path();
+  let pkg = serde_json::json!({
+    "name": "my-app",
+    "version": "1.0.0",
+    "private": true,
+  });
+  std::fs::write(
+    root.join("package.json"),
+    serde_json::to_string_pretty(&pkg).unwrap(),
+  )
+  .unwrap();
+}
+
+fn create_solo_config(release_dir: &Path) -> OxrlsConfig {
+  let config_path = release_dir.join("config.json");
+  // This config simulates what the init wizard produces for a solo repo:
+  // changelogs enabled, but both monorepo-only flags set to false.
+  let config = OxrlsConfig {
+    changelog: true,
+    generate_packages_changelog: false,
+    generate_global_changelog: false,
+    update_internal_dependencies: InternalDepUpdate::Patch,
+    base_branch: "main".to_string(),
+    access: Access::Public,
+    ..OxrlsConfig::default()
+  };
+  OxrlsConfig::write_to(&config_path, &config, true).unwrap();
+  config
+}
+
+#[test]
+fn test_solo_repo_always_creates_changelog() {
+  let tmp = TempDir::new().unwrap();
+
+  // Phase 1: Scaffold a single-package repo (no workspaces)
+  scaffold_solo_repo(&tmp);
+  let workspace = load_workspace(tmp.path()).unwrap();
+  assert_eq!(workspace.packages.len(), 1);
+  assert!(workspace.packages.contains_key("my-app"));
+
+  // Phase 2: Config with both changelog flags false but changelog enabled
+  let oxrls_dir = tmp.path().join(".oxrls");
+  let config = create_solo_config(&oxrls_dir);
+  assert!(config.changelog);
+  assert!(!config.generate_packages_changelog);
+  assert!(!config.generate_global_changelog);
+
+  // Phase 3: Create a release file
+  let mut r1 = IndexMap::new();
+  r1.insert("my-app".to_string(), BumpType::Patch);
+  create_release_file(&oxrls_dir, &r1, "Fix login bug", None).unwrap();
+  assert_eq!(find_release_files(&oxrls_dir).unwrap().len(), 1);
+
+  // Phase 4: Build and apply the release plan
+  let plan = build_release_plan(&workspace, &config, &oxrls_dir).unwrap();
+  assert_eq!(plan.bumps.len(), 1);
+  let bump = plan.bumps.get("my-app").unwrap();
+  assert_eq!(bump.old_version, Version::new(1, 0, 0));
+  assert_eq!(bump.new_version, Version::new(1, 0, 1));
+  assert_eq!(bump.bump_type, BumpType::Patch);
+
+  apply_release_plan(&workspace, &plan, &config, &oxrls_dir, false, false).unwrap();
+
+  // Phase 5: Verify package version updated
+  let pkg = PackageJson::read(&tmp.path().join("package.json")).unwrap();
+  assert_eq!(pkg.version.as_deref(), Some("1.0.1"));
+
+  // Phase 6: Verify root-level CHANGELOG.md was created
+  let changelog_path = tmp.path().join("CHANGELOG.md");
+  assert!(
+    changelog_path.exists(),
+    "Solo repo should create a root-level CHANGELOG.md, but it was not found"
+  );
+
+  let changelog_content = std::fs::read_to_string(&changelog_path).unwrap();
+  assert!(changelog_content.contains("# Changelog"), "Should have changelog header");
+  assert!(changelog_content.contains("my-app"), "Should reference the package name");
+  assert!(changelog_content.contains("1.0.1"), "Should reference the new version");
+  assert!(changelog_content.contains("Fix login bug"), "Should contain the release summary");
+  assert!(changelog_content.contains("### Patch Changes"), "Should group changes by type");
+
+  // Phase 7: Verify release files were consumed
+  assert_eq!(
+    find_release_files(&oxrls_dir).unwrap().len(),
+    0,
+    "Release files should be consumed"
+  );
+
+  println!("\n✅ Solo-repo changelog test passed: root-level CHANGELOG.md created successfully!");
+}
+
+#[test]
+fn test_solo_repo_changelog_disabled_when_changelog_false() {
+  let tmp = TempDir::new().unwrap();
+
+  // Single-package repo
+  scaffold_solo_repo(&tmp);
+  let workspace = load_workspace(tmp.path()).unwrap();
+  assert_eq!(workspace.packages.len(), 1);
+
+  // Config with changelog disabled
+  let oxrls_dir = tmp.path().join(".oxrls");
+  let config_path = oxrls_dir.join("config.json");
+  let config = OxrlsConfig {
+    changelog: false,
+    generate_packages_changelog: false,
+    generate_global_changelog: false,
+    update_internal_dependencies: InternalDepUpdate::Patch,
+    base_branch: "main".to_string(),
+    access: Access::Public,
+    ..OxrlsConfig::default()
+  };
+  OxrlsConfig::write_to(&config_path, &config, true).unwrap();
+
+  // Create release file, build plan, apply
+  let mut r1 = IndexMap::new();
+  r1.insert("my-app".to_string(), BumpType::Patch);
+  create_release_file(&oxrls_dir, &r1, "Fix login bug", None).unwrap();
+
+  let plan = build_release_plan(&workspace, &config, &oxrls_dir).unwrap();
+  apply_release_plan(&workspace, &plan, &config, &oxrls_dir, false, false).unwrap();
+
+  // Verify no CHANGELOG.md was created
+  let changelog_path = tmp.path().join("CHANGELOG.md");
+  assert!(
+    !changelog_path.exists(),
+    "CHANGELOG.md should NOT exist when changelog is disabled"
+  );
+
+  println!("\n✅ Solo-repo disabled changelog test passed: no CHANGELOG.md as expected!");
+}
