@@ -141,24 +141,44 @@ pub fn apply_release_plan(
   }
 
   if changelog_mode.global {
-    // Collect all bumped packages with their summaries for the global changelog
-    let global_packages: Vec<(String, semver::Version, BumpType, Vec<String>)> = plan
-      .bumps
-      .values()
-      .map(|bump| {
-        (
-          bump.package_name.clone(),
-          bump.new_version.clone(),
-          bump.bump_type,
-          bump.summaries.clone(),
-        )
-      })
-      .collect();
+    if is_solo_repo {
+      // Solo repo: use per-package format (version h2, no package prefix).
+      // Since there's only one package, the per-package formatter gives the
+      // desired output — version as heading, plain bullet entries.
+      if let Some((_name, bump)) = plan.bumps.iter().next() {
+        let mut changes: IndexMap<BumpType, Vec<String>> = IndexMap::new();
+        changes.insert(bump.bump_type, bump.summaries.clone());
+        let entry = ChangelogEntry {
+          package_name: bump.package_name.clone(),
+          version: bump.new_version.to_string(),
+          changes,
+        };
+        let section = generate_changelog_section(&entry);
+        if !section.is_empty() {
+          let changelog_path = workspace.root.join("CHANGELOG.md");
+          update_changelog(&changelog_path, &section)?;
+        }
+      }
+    } else {
+      // Monorepo: aggregate changes from all bumped packages with a date heading
+      let global_packages: Vec<(String, semver::Version, BumpType, Vec<String>)> = plan
+        .bumps
+        .values()
+        .map(|bump| {
+          (
+            bump.package_name.clone(),
+            bump.new_version.clone(),
+            bump.bump_type,
+            bump.summaries.clone(),
+          )
+        })
+        .collect();
 
-    let global_section = generate_global_changelog_section(&global_packages);
-    if !global_section.is_empty() {
-      let global_changelog_path = workspace.root.join("CHANGELOG.md");
-      update_global_changelog(&global_changelog_path, &global_section)?;
+      let global_section = generate_global_changelog_section(&global_packages);
+      if !global_section.is_empty() {
+        let global_changelog_path = workspace.root.join("CHANGELOG.md");
+        update_global_changelog(&global_changelog_path, &global_section)?;
+      }
     }
   }
 

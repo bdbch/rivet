@@ -38,7 +38,7 @@ fn indent_continuations(text: &str, first_line_prefix: &str) -> String {
 pub fn generate_changelog_section(entry: &ChangelogEntry) -> String {
   let mut lines = Vec::new();
 
-  lines.push(format!("## {}", entry.version));
+  lines.push(format!("## v{}", entry.version));
   lines.push(String::new());
 
   let type_names = [
@@ -237,7 +237,7 @@ mod tests {
     };
 
     let section = generate_changelog_section(&entry);
-    assert!(section.contains("1.2.4"));
+    assert!(section.contains("v1.2.4"));
     assert!(section.contains("### Patch Changes"));
     assert!(section.contains("Fixed editor selection behavior."));
     assert!(!section.contains("Minor Changes"));
@@ -263,6 +263,7 @@ mod tests {
     };
 
     let section = generate_changelog_section(&entry);
+    assert!(section.contains("v2.0.0"));
     assert!(section.contains("### Major Changes"));
     assert!(section.contains("### Minor Changes"));
     assert!(section.contains("### Patch Changes"));

@@ -656,6 +656,82 @@ Mixed changes for pre-release and stable."#;
     );
   }
 
+  /// Helper: create a solo repo workspace (single package at root, no workspaces field).
+  fn create_solo_workspace(tmp: &TempDir) -> Workspace {
+    let root_pkg = serde_json::json!({
+        "name": "@bdbchgg/wingetjs",
+        "version": "1.0.0"
+    });
+    std::fs::write(
+      tmp.path().join("package.json"),
+      serde_json::to_string_pretty(&root_pkg).unwrap(),
+    )
+    .unwrap();
+
+    load_workspace(tmp.path()).unwrap()
+  }
+
+  #[test]
+  fn test_solo_repo_changelog_format() {
+    let tmp = TempDir::new().unwrap();
+    let workspace = create_solo_workspace(&tmp);
+
+    let release_dir = tmp.path().join(".oxrls");
+    std::fs::create_dir_all(&release_dir).unwrap();
+
+    let content = r#"---
+"@bdbchgg/wingetjs": minor
+---
+
+Initial release of @bdbchgg/wingetjs"#;
+    std::fs::write(release_dir.join("release.md"), content).unwrap();
+
+    let config = OxrlsConfig::default();
+    let plan = build_release_plan(&workspace, &config, &release_dir).unwrap();
+
+    // Apply the plan (not dry run)
+    apply_release_plan(&workspace, &plan, &config, &release_dir, false, false).unwrap();
+
+    // Read the generated changelog
+    let changelog_path = tmp.path().join("CHANGELOG.md");
+    assert!(changelog_path.exists(), "CHANGELOG.md should exist");
+
+    let changelog = std::fs::read_to_string(&changelog_path).unwrap();
+
+    // Should use version as h2, NOT a date
+    assert!(
+      changelog.contains("## v1.1.0"),
+      "Changelog should use version heading, got:\n{}",
+      changelog
+    );
+    assert!(
+      !changelog.contains("2026-"),
+      "Changelog should NOT use date heading, got:\n{}",
+      changelog
+    );
+
+    // Should NOT contain package prefix
+    assert!(
+      !changelog.contains("**@bdbchgg/wingetjs**"),
+      "Changelog should NOT contain package prefix in solo mode, got:\n{}",
+      changelog
+    );
+
+    // Should use plain bullet format
+    assert!(
+      changelog.contains("- Initial release of @bdbchgg/wingetjs"),
+      "Changelog should use plain bullet format, got:\n{}",
+      changelog
+    );
+
+    // Verify structure
+    assert!(
+      changelog.contains("### Minor Changes"),
+      "Changelog should have Minor Changes section, got:\n{}",
+      changelog
+    );
+  }
+
   #[test]
   fn test_pre_state_not_saved_by_build_plan_alone() {
     // When build_release_plan is called without a subsequent apply,

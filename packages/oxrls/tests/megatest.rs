@@ -418,8 +418,17 @@ fn test_solo_repo_always_creates_changelog() {
 
   let changelog_content = std::fs::read_to_string(&changelog_path).unwrap();
   assert!(changelog_content.contains("# Changelog"), "Should have changelog header");
-  assert!(changelog_content.contains("my-app"), "Should reference the package name");
-  assert!(changelog_content.contains("1.0.1"), "Should reference the new version");
+  // Solo repo uses version heading (not date), no package prefix
+  assert!(
+    changelog_content.contains("## v1.0.1"),
+    "Should use version heading, got:\n{}",
+    changelog_content
+  );
+  assert!(
+    !changelog_content.contains("**my-app**"),
+    "Solo repo should NOT have package prefix, got:\n{}",
+    changelog_content
+  );
   assert!(changelog_content.contains("Fix login bug"), "Should contain the release summary");
   assert!(changelog_content.contains("### Patch Changes"), "Should group changes by type");
 
