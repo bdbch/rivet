@@ -417,7 +417,10 @@ fn test_solo_repo_always_creates_changelog() {
   );
 
   let changelog_content = std::fs::read_to_string(&changelog_path).unwrap();
-  assert!(changelog_content.contains("# Changelog"), "Should have changelog header");
+  assert!(
+    changelog_content.contains("# Changelog"),
+    "Should have changelog header"
+  );
   // Solo repo uses version heading (not date), no package prefix
   assert!(
     changelog_content.contains("## v1.0.1"),
@@ -429,8 +432,14 @@ fn test_solo_repo_always_creates_changelog() {
     "Solo repo should NOT have package prefix, got:\n{}",
     changelog_content
   );
-  assert!(changelog_content.contains("Fix login bug"), "Should contain the release summary");
-  assert!(changelog_content.contains("### Patch Changes"), "Should group changes by type");
+  assert!(
+    changelog_content.contains("Fix login bug"),
+    "Should contain the release summary"
+  );
+  assert!(
+    changelog_content.contains("### Patch Changes"),
+    "Should group changes by type"
+  );
 
   // Phase 7: Verify release files were consumed
   assert_eq!(

@@ -65,7 +65,7 @@ I'd love to get some eyes from the Rust community on best practices, patterns, a
 
 | Command         | Description                                                  |
 | --------------- | ------------------------------------------------------------ |
-| `oxrls init`    | Create `oxrls.json` config and `.oxrls/` directory           |
+| `oxrls init`    | Create `oxrls.json` config and `.oxrls/` directory (use `--force` to re-run) |
 | `oxrls new`     | Create a release file (interactive or `--package --summary`) |
 | `oxrls status`  | Show pending release files and calculated bumps              |
 | `oxrls bump`    | Apply version bumps, update deps, generate changelogs        |

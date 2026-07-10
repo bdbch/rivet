@@ -36,11 +36,12 @@ pub fn run_init_wizard(
           .with_default(true)
           .prompt()
           .map_err(|e| OxrlsError::Other(format!("Input failed: {}", e)))?;
-      config.generate_global_changelog =
-        Confirm::new("  Create a global CHANGELOG.md in the project root (aggregating all changes)?")
-          .with_default(false)
-          .prompt()
-          .map_err(|e| OxrlsError::Other(format!("Input failed: {}", e)))?;
+      config.generate_global_changelog = Confirm::new(
+        "  Create a global CHANGELOG.md in the project root (aggregating all changes)?",
+      )
+      .with_default(false)
+      .prompt()
+      .map_err(|e| OxrlsError::Other(format!("Input failed: {}", e)))?;
     } else {
       config.generate_packages_changelog = false;
       config.generate_global_changelog = true;

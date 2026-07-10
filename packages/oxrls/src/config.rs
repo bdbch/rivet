@@ -196,10 +196,23 @@ impl OxrlsConfig {
   }
 }
 
-const CONFIG_FILE_NAMES: &[&str] = &[".oxrls/config.json", "oxrls.json", ".oxrls.json"];
+pub(crate) const CONFIG_FILE_NAMES: &[&str] = &[".oxrls/config.json", "oxrls.json", ".oxrls.json"];
+
+pub fn find_existing_config(start_dir: &std::path::Path) -> Option<std::path::PathBuf> {
+  let mut current = Some(start_dir);
+  while let Some(dir) = current {
+    for name in CONFIG_FILE_NAMES {
+      let path = dir.join(name);
+      if path.exists() {
+        return Some(path);
+      }
+    }
+    current = dir.parent();
+  }
+  None
+}
 
 impl OxrlsConfig {
-  /// Find and load config from the given directory or one of its parents.
   pub fn load(start_dir: &Path) -> Result<(Self, PathBuf)> {
     let cwd = std::env::current_dir().map_err(OxrlsError::Io)?;
     let search_start = if start_dir.is_absolute() {
