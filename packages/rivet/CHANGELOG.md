@@ -1,40 +1,40 @@
 # Changelog
 
-## 2026-05-23
+## @bdbchgg/rivet (v1.0.0-alpha.5)
 
 ### Patch Changes
 
-- **@bdbchgg/rivet** (v1.0.0-alpha.5): Fixed a bug where a pre-version would not correctly bump it's version on the first pre-version
+- Fixed a bug where a pre-version would not correctly bump it's version on the first pre-version
 
-## 2026-05-23
-
-### Patch Changes
-
-- **@bdbchgg/rivet** (v1.0.0-alpha.4): Fixed a bug that caused the binary not to be included with the bundle
-
-## 2026-05-22
+## @bdbchgg/rivet (v1.0.0-alpha.4)
 
 ### Patch Changes
 
-- **@bdbchgg/rivet** (v1.0.0-alpha.3): Improve CLI output formatting with aligned columns and unicode arrows
+- Fixed a bug that caused the binary not to be included with the bundle
 
-## 2026-05-22
+## @bdbchgg/rivet (v1.0.0-alpha.3)
 
 ### Patch Changes
 
-- **@bdbchgg/rivet** (v1.0.0-alpha.2): Fix: rivet status no longer increments pre-release counters
-- **@bdbchgg/rivet** (v1.0.0-alpha.2): Move config to .rivet/config.json, fix release_dir_abs for nested config
-- **@bdbchgg/rivet** (v1.0.0-alpha.2): Fix: dry-run no longer increments pre-release counters
-- **@bdbchgg/rivet** (v1.0.0-alpha.2): Fix: pre-release keeps base version, only increments counter
-- **@bdbchgg/rivet** (v1.0.0-alpha.2): Fixed a bug where release files with multiple lines would not be indented correctly on changelogs
-- **@bdbchgg/rivet** (v1.0.0-alpha.2): Add rivet check command for CI pipelines
-- **@bdbchgg/rivet** (v1.0.0-alpha.2): Add hex prefix to release filenames and syncCargoToml config option
+- Improve CLI output formatting with aligned columns and unicode arrows
 
-## 2026-05-22
+## @bdbchgg/rivet (v1.0.0-alpha.2)
+
+### Patch Changes
+
+- Fix: rivet status no longer increments pre-release counters
+- Move config to .rivet/config.json, fix release_dir_abs for nested config
+- Fix: dry-run no longer increments pre-release counters
+- Fix: pre-release keeps base version, only increments counter
+- Fixed a bug where release files with multiple lines would not be indented correctly on changelogs
+- Add rivet check command for CI pipelines
+- Add hex prefix to release filenames and syncCargoToml config option
+
+## @bdbchgg/rivet (v1.0.0-alpha.1)
 
 ### Major Changes
 
-- **@bdbchgg/rivet** (v1.0.0-alpha.1): First public release of rivet — a Rust-powered release CLI for JS/TS monorepos.
+- First public release of rivet — a Rust-powered release CLI for JS/TS monorepos.
 
   I'm incredibly happy to release this. rivet has been a joy to build and I'm already using it for my own monorepos. It's fast, configurable, bendable and just works!
 

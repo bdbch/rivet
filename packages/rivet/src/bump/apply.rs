@@ -1,4 +1,4 @@
-use crate::bump::plan::ReleasePlan;
+use crate::bump::plan::{PlannedBump, ReleasePlan};
 use crate::changelog::{
   ChangelogEntry, generate_changelog_section, generate_global_changelog_section, update_changelog,
   update_global_changelog,
@@ -12,6 +12,29 @@ use crate::workspace::Workspace;
 use indexmap::IndexMap;
 use std::collections::HashSet;
 use std::path::{Path, PathBuf};
+
+/// Group a single planned bump's release-file summaries by their individual bump type.
+/// Falls back to the plan's determined `bump_type` when no per-file mapping is available
+/// (e.g. fixed-group bumps that derive their bump type without release files).
+fn group_release_file_summaries(bump: &PlannedBump) -> IndexMap<BumpType, Vec<String>> {
+  let mut type_summaries: IndexMap<BumpType, Vec<String>> = IndexMap::new();
+  for rf_path in &bump.release_files {
+    if let Ok(rf) = parse_release_file(rf_path)
+      && let Some(bt) = rf.releases.get(&bump.package_name)
+    {
+      type_summaries
+        .entry(*bt)
+        .or_default()
+        .push(rf.summary.clone());
+    }
+  }
+
+  if type_summaries.is_empty() {
+    type_summaries.insert(bump.bump_type, bump.summaries.clone());
+  }
+
+  type_summaries
+}
 
 /// Apply the release plan: write package.json files, update changelogs, remove release files.
 /// If `dry_run` is true, only print what would happen without writing.
@@ -113,21 +136,7 @@ pub fn apply_release_plan(
       let changelog_path = pkg.dir.join("CHANGELOG.md");
 
       // Group summaries by type for this package
-      let mut type_summaries: IndexMap<BumpType, Vec<String>> = IndexMap::new();
-      for rf_path in &bump.release_files {
-        if let Ok(rf) = parse_release_file(rf_path)
-          && let Some(bt) = rf.releases.get(&bump.package_name)
-        {
-          type_summaries
-            .entry(*bt)
-            .or_default()
-            .push(rf.summary.clone());
-        }
-      }
-
-      if type_summaries.is_empty() {
-        type_summaries.insert(bump.bump_type, bump.summaries.clone());
-      }
+      let type_summaries = group_release_file_summaries(bump);
 
       let entry = ChangelogEntry {
         package_name: bump.package_name.clone(),
@@ -146,12 +155,11 @@ pub fn apply_release_plan(
       // Since there's only one package, the per-package formatter gives the
       // desired output — version as heading, plain bullet entries.
       if let Some((_name, bump)) = plan.bumps.iter().next() {
-        let mut changes: IndexMap<BumpType, Vec<String>> = IndexMap::new();
-        changes.insert(bump.bump_type, bump.summaries.clone());
+        let type_summaries = group_release_file_summaries(bump);
         let entry = ChangelogEntry {
           package_name: bump.package_name.clone(),
           version: bump.new_version.to_string(),
-          changes,
+          changes: type_summaries,
         };
         let section = generate_changelog_section(&entry);
         if !section.is_empty() {
@@ -160,21 +168,18 @@ pub fn apply_release_plan(
         }
       }
     } else {
-      // Monorepo: aggregate changes from all bumped packages with a date heading
-      let global_packages: Vec<(String, semver::Version, BumpType, Vec<String>)> = plan
+      // Monorepo: aggregate changes from all bumped packages, one `## pkg (vX)` section per package+version.
+      let entries: Vec<ChangelogEntry> = plan
         .bumps
         .values()
-        .map(|bump| {
-          (
-            bump.package_name.clone(),
-            bump.new_version.clone(),
-            bump.bump_type,
-            bump.summaries.clone(),
-          )
+        .map(|bump| ChangelogEntry {
+          package_name: bump.package_name.clone(),
+          version: bump.new_version.to_string(),
+          changes: group_release_file_summaries(bump),
         })
         .collect();
 
-      let global_section = generate_global_changelog_section(&global_packages);
+      let global_section = generate_global_changelog_section(&entries);
       if !global_section.is_empty() {
         let global_changelog_path = workspace.root.join("CHANGELOG.md");
         update_global_changelog(&global_changelog_path, &global_section)?;
