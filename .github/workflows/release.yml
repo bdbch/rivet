@@ -1,0 +1,103 @@
+name: Release
+
+on:
+  push:
+    branches:
+      - release
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  publish:
+    if: github.ref_name == 'release'
+    runs-on: ubuntu-latest
+    environment:
+      name: npm-production
+    env:
+      CI: true
+    steps:
+      - name: Check out repository
+        uses: actions/checkout@v4
+
+      - name: Set up pnpm
+        uses: pnpm/action-setup@v4
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - name: Set up Rust
+        uses: dtolnay/rust-toolchain@stable
+        with:
+          components: rustfmt, clippy
+          targets: x86_64-apple-darwin,aarch64-apple-darwin,x86_64-pc-windows-msvc
+
+      - name: Set up Zig
+        uses: mlugg/setup-zig@v2
+        with:
+          version: 0.14.1
+
+      - name: Install cross-compilation tools
+        run: |
+          cargo install cargo-zigbuild --locked
+          cargo install cargo-xwin --locked
+
+      - name: Install Node dependencies
+        run: pnpm install --frozen-lockfile
+
+      - name: Require a prepared release
+        run: test -f .rivet/releaseplan.txt
+
+      - name: Lint
+        run: |
+          cargo fmt --all -- --check
+          cargo clippy --workspace
+
+      - name: Build Linux x64
+        working-directory: packages/rivet
+        run: pnpm exec napi build --target x86_64-unknown-linux-gnu --release -x
+
+      - name: Build Windows x64
+        working-directory: packages/rivet
+        run: pnpm exec napi build --target x86_64-pc-windows-msvc --release -x
+
+      - name: Build macOS x64
+        working-directory: packages/rivet
+        run: pnpm exec napi build --target x86_64-apple-darwin --release -x
+
+      - name: Build macOS ARM64
+        working-directory: packages/rivet
+        run: pnpm exec napi build --target aarch64-apple-darwin --release -x
+
+      - name: Build CLI
+        run: cargo build --release --bin rivet
+
+      - name: Test
+        run: cargo test --workspace
+
+      - name: Assemble native packages
+        working-directory: packages/rivet
+        run: |
+          pnpm exec napi create-npm-dirs
+          cp rivet-native.linux-x64-gnu.node npm/linux-x64-gnu/
+          cp ../../target/x86_64-apple-darwin/release/librivet.dylib npm/darwin-x64/rivet-native.darwin-x64.node
+          cp ../../target/aarch64-apple-darwin/release/librivet.dylib npm/darwin-arm64/rivet-native.darwin-arm64.node
+          cp ../../target/x86_64-pc-windows-msvc/release/rivet.dll npm/win32-x64-msvc/rivet-native.win32-x64-msvc.node
+
+      - name: Publish bumped packages
+        env:
+          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
+        run: |
+          npm config set //registry.npmjs.org/:_authToken "$NODE_AUTH_TOKEN"
+          cargo run --release --bin rivet -- release
+
+      - name: Verify release plan was consumed
+        run: test ! -f .rivet/releaseplan.txt
