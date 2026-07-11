@@ -2,7 +2,7 @@
 authors = ["Dominik Biedebach <dominik@bdbch.com>"]
 edition = "2024"
 name    = "rivet"
-version = "1.0.0-alpha.5"
+version = "1.0.0-alpha.6"
 
 [lib]
 crate-type = ["cdylib", "rlib"]
