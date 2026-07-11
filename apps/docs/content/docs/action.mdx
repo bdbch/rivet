@@ -70,7 +70,7 @@ The command only runs after a version pull request has been merged and a release
 | ----------------- | ----------------------------- | ------------------------------------------------ |
 | `github-token`    | `${{ github.token }}`          | Token for branches and pull requests             |
 | `cwd`             | `.`                           | Working directory containing Rivet configuration |
-| `base-branch`     | `main`                        | Target branch for the version pull request       |
+| `base-branch`     | Triggering branch             | Target branch for the version pull request       |
 | `branch`          | `rivet-release`               | Version pull request branch                      |
 | `check`           | `pnpm exec rivet check --json` | Release state command                            |
 | `version`         | `pnpm exec rivet bump`        | Version and changelog command                    |

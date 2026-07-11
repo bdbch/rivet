@@ -115,25 +115,19 @@ async function ensureVersionBranch({ token, cwd, repository, baseBranch, branch,
   }
 
   await run(`git fetch origin ${shellQuote(baseBranch)}`, cwd)
-  if (remoteBranch) {
-    await run(`git fetch origin ${shellQuote(branch)}`, cwd)
-    await run(`git checkout -B ${shellQuote(branch)} origin/${shellQuote(branch)}`, cwd)
-  } else {
-    await run(`git checkout -B ${shellQuote(branch)} origin/${shellQuote(baseBranch)}`, cwd)
-  }
+  if (remoteBranch) await run(`git fetch origin ${shellQuote(branch)}`, cwd)
+  await run(`git checkout -B ${shellQuote(branch)} origin/${shellQuote(baseBranch)}`, cwd)
 
-  const initialRevision = (await run('git rev-parse HEAD', cwd)).stdout.trim()
-  if (remoteBranch) await run(`git merge --no-edit origin/${shellQuote(baseBranch)}`, cwd)
   await run(command, cwd)
   const changes = await run('git status --porcelain', cwd)
-  const currentRevision = (await run('git rev-parse HEAD', cwd)).stdout.trim()
-  if (!changes.stdout.trim() && currentRevision === initialRevision) return false
+  if (!changes.stdout.trim()) return false
 
   if (changes.stdout.trim()) {
     await run('git add -A', cwd)
     await run(`git commit -m ${shellQuote(commitMessage)}`, cwd)
   }
-  await run(`git push origin HEAD:${shellQuote(branch)}`, cwd)
+  const force = remoteBranch ? '--force-with-lease' : ''
+  await run(`git push ${force} origin HEAD:${shellQuote(branch)}`, cwd)
   return true
 }
 
@@ -193,7 +187,7 @@ async function main() {
   const cwd = path.resolve(getInput('cwd', '.'))
   const repository = process.env.GITHUB_REPOSITORY
   if (!repository) throw new Error('GITHUB_REPOSITORY must be set to owner/name')
-  const baseBranch = getInput('base-branch', 'main')
+  const baseBranch = getInput('base-branch', process.env.GITHUB_REF_NAME || 'main')
   const branch = getInput('branch', 'rivet-release')
   const checkCommand = getInput('check', 'pnpm exec rivet check --json')
   const versionCommand = getInput('version', 'pnpm exec rivet bump')

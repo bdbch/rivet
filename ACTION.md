@@ -47,7 +47,7 @@ The default commands are:
 - `pnpm exec rivet bump`
 - no publish command unless `publish` is configured
 
-Use `cwd`, `base-branch`, `branch`, `check`, `version`, `commit-message`, and `pr-title` to adapt the action to a different repository layout or release policy.
+By default, the Action uses the branch that triggered the workflow as its base branch. Use `cwd`, `base-branch`, `branch`, `check`, `version`, `commit-message`, and `pr-title` to adapt it to a different repository layout or release policy.
 
 ## Releasing the Action
 

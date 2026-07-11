@@ -12,9 +12,9 @@ inputs:
     required: false
     default: .
   base-branch:
-    description: Branch receiving the version pull request.
+    description: Branch receiving the version pull request. Defaults to the branch that triggered the workflow.
     required: false
-    default: main
+    default: ${{ github.ref_name }}
   branch:
     description: Branch used for the version pull request.
     required: false
