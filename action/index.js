@@ -131,6 +131,68 @@ async function ensureVersionBranch({ token, cwd, repository, baseBranch, branch,
   return true
 }
 
+function extractAddedLines(diffOutput) {
+  return diffOutput
+    .split('\n')
+    .filter((line) => line.startsWith('+') && !line.startsWith('+++'))
+    .map((line) => line.slice(1))
+    .join('\n')
+    .trim()
+}
+
+function stripChangelogHeader(content) {
+  const match = content.match(/^#\s*changelog\s*\n+/i)
+  return match ? content.slice(match[0].length) : content
+}
+
+async function extractChangelogFromDiff(cwd) {
+  const nameOnlyDiff = await run('git diff HEAD~1 --name-only --diff-filter=AM', cwd)
+  const changedFiles = nameOnlyDiff.stdout
+    .split('\n')
+    .map((l) => l.trim())
+    .filter(Boolean)
+
+  const rootChangelogs = changedFiles.filter((f) => f === 'CHANGELOG.md')
+  const packageChangelogs = changedFiles.filter((f) => f.endsWith('/CHANGELOG.md'))
+
+  if (rootChangelogs.length > 0) {
+    const diff = await run('git diff HEAD~1 -- CHANGELOG.md', cwd)
+    return stripChangelogHeader(extractAddedLines(diff.stdout))
+  }
+
+  if (packageChangelogs.length > 0) {
+    const sections = []
+    for (const file of packageChangelogs) {
+      const diff = await run(`git diff HEAD~1 -- ${shellQuote(file)}`, cwd)
+      const content = stripChangelogHeader(extractAddedLines(diff.stdout))
+      if (!content) continue
+
+      const dir = path.dirname(file)
+      let packageName
+      try {
+        const pkgJson = await readFile(path.join(cwd, dir, 'package.json'), 'utf8')
+        packageName = JSON.parse(pkgJson).name
+      } catch {
+        packageName = path.basename(dir)
+      }
+
+      sections.push(`### ${packageName}\n\n${content}`)
+    }
+    return sections.join('\n\n')
+  }
+
+  return ''
+}
+
+const PR_INTRO = 'This PR was opened by the [Rivet Release](https://github.com/bdbch/rivet) GitHub action. When you\'re ready to do a release, you can merge this and the new versions will be published.'
+
+function generatePullRequestBody(changelogContent) {
+  if (!changelogContent || !changelogContent.trim()) {
+    return 'This PR was created automatically by Rivet.'
+  }
+  return `${PR_INTRO}\n\n---\n\n## Release Notes\n\n${changelogContent}`
+}
+
 async function createOrUpdatePullRequest({ token, repository, baseBranch, branch, title, body }) {
   const existing = await findVersionPullRequest(token, repository, baseBranch, branch)
   if (existing) {
@@ -224,9 +286,11 @@ async function main() {
       return
     }
 
+    const changelog = await extractChangelogFromDiff(cwd)
+    const body = generatePullRequestBody(changelog)
     const number = await createOrUpdatePullRequest({
       baseBranch,
-      body: getInput('pr-body', 'This PR was created automatically by Rivet.'),
+      body,
       branch,
       repository,
       title: getInput('pr-title', 'chore: version packages'),
@@ -265,4 +329,4 @@ if (require.main === module) {
   })
 }
 
-module.exports = { getInput, shellQuote }
+module.exports = { getInput, shellQuote, extractAddedLines, stripChangelogHeader, extractChangelogFromDiff, generatePullRequestBody }

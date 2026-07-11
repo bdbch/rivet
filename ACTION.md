@@ -1,6 +1,6 @@
 # Rivet GitHub Action
 
-The action creates or updates a version pull request when `.rivet/` contains release files. After that pull request is merged, the action sees `.rivet/releaseplan.txt` and runs the configured publish command.
+The action creates or updates a version pull request when `.rivet/` contains release files. The pull request body is automatically generated from the changelog entries so reviewers can see all changes at a glance. After the pull request is merged, the action sees `.rivet/releaseplan.txt` and runs the configured publish command.
 
 ## Workflow
 
@@ -47,7 +47,7 @@ The default commands are:
 - `pnpm exec rivet bump`
 - no publish command unless `publish` is configured
 
-By default, the Action uses the branch that triggered the workflow as its base branch. Use `cwd`, `base-branch`, `branch`, `check`, `version`, `commit-message`, and `pr-title` to adapt it to a different repository layout or release policy.
+By default, the Action uses the branch that triggered the workflow as its base branch. Use `cwd`, `base-branch`, `branch`, `check`, `version`, `commit-message`, and `pr-title` to adapt it to a different repository layout or release policy. The pull request body is always generated from the changelog diff and does not need to be configured.
 
 ## Releasing the Action
 
