@@ -1,7 +1,7 @@
 'use strict'
 
 const { exec } = require('node:child_process')
-const { appendFile, mkdir, readFile } = require('node:fs/promises')
+const { appendFile, chmod, mkdir, readFile, writeFile } = require('node:fs/promises')
 const path = require('node:path')
 const { promisify } = require('node:util')
 
@@ -28,6 +28,7 @@ function info(message) {
 }
 
 function shellQuote(value) {
+  if (process.platform === 'win32') return `"${value.replaceAll('"', '\\"')}"`
   return `'${value.replaceAll("'", "'\\''")}'`
 }
 
@@ -39,7 +40,7 @@ async function run(command, cwd, ignoreFailure = false) {
       cwd,
       env: process.env,
       maxBuffer: 10 * 1024 * 1024,
-      shell: '/bin/bash',
+      shell: process.platform === 'win32' ? process.env.ComSpec || 'cmd.exe' : process.env.SHELL || '/bin/sh',
     })
     if (result.stdout) process.stdout.write(result.stdout)
     if (result.stderr) process.stderr.write(result.stderr)
@@ -51,7 +52,7 @@ async function run(command, cwd, ignoreFailure = false) {
       return {
         stdout: error.stdout || '',
         stderr: error.stderr || '',
-        exitCode: error.code || 1,
+        exitCode: typeof error.code === 'number' ? error.code : 1,
       }
     }
     throw error
@@ -117,17 +118,21 @@ async function ensureVersionBranch({ token, cwd, repository, baseBranch, branch,
   if (remoteBranch) {
     await run(`git fetch origin ${shellQuote(branch)}`, cwd)
     await run(`git checkout -B ${shellQuote(branch)} origin/${shellQuote(branch)}`, cwd)
-    await run(`git merge --no-edit origin/${shellQuote(baseBranch)}`, cwd)
   } else {
     await run(`git checkout -B ${shellQuote(branch)} origin/${shellQuote(baseBranch)}`, cwd)
   }
 
+  const initialRevision = (await run('git rev-parse HEAD', cwd)).stdout.trim()
+  if (remoteBranch) await run(`git merge --no-edit origin/${shellQuote(baseBranch)}`, cwd)
   await run(command, cwd)
   const changes = await run('git status --porcelain', cwd)
-  if (!changes.stdout.trim()) return false
+  const currentRevision = (await run('git rev-parse HEAD', cwd)).stdout.trim()
+  if (!changes.stdout.trim() && currentRevision === initialRevision) return false
 
-  await run('git add -A', cwd)
-  await run(`git commit -m ${shellQuote(commitMessage)}`, cwd)
+  if (changes.stdout.trim()) {
+    await run('git add -A', cwd)
+    await run(`git commit -m ${shellQuote(commitMessage)}`, cwd)
+  }
   await run(`git push origin HEAD:${shellQuote(branch)}`, cwd)
   return true
 }
@@ -158,13 +163,18 @@ async function configureNpmAuth() {
   const npmrc = path.join(process.env.HOME || process.cwd(), '.npmrc')
   await mkdir(path.dirname(npmrc), { recursive: true })
   const authLine = '//registry.npmjs.org/:_authToken='
+  let existing = ''
   try {
-    const existing = await readFile(npmrc, 'utf8')
-    if (existing.split('\n').some((line) => line.trim().startsWith(authLine))) return
+    existing = await readFile(npmrc, 'utf8')
   } catch (error) {
     if (error.code !== 'ENOENT') throw error
   }
-  await appendFile(npmrc, `${authLine}${token}\n`)
+  const withoutRegistryTokens = existing
+    .split('\n')
+    .filter((line) => !line.trim().startsWith(authLine))
+    .filter((line, index, lines) => index < lines.length - 1 || line.trim())
+  await writeFile(npmrc, `${withoutRegistryTokens.join('\n')}\n${authLine}${token}\n`, { mode: 0o600 })
+  await chmod(npmrc, 0o600)
 }
 
 async function main() {
