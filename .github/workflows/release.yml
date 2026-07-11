@@ -3,27 +3,28 @@ name: Release
 on:
   push:
     branches:
-      - release
+      - main
   workflow_dispatch:
 
 permissions:
-  contents: read
+  contents: write
+  pull-requests: write
 
 concurrency:
-  group: release
+  group: release-${{ github.ref }}
   cancel-in-progress: false
 
 jobs:
-  publish:
-    if: github.ref_name == 'release'
+  release:
+    if: github.ref_name == 'main'
     runs-on: ubuntu-latest
-    environment:
-      name: npm-production
     env:
       CI: true
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
 
       - name: Set up pnpm
         uses: pnpm/action-setup@v4
@@ -37,7 +38,6 @@ jobs:
       - name: Set up Rust
         uses: dtolnay/rust-toolchain@stable
         with:
-          components: rustfmt, clippy
           targets: x86_64-apple-darwin,aarch64-apple-darwin,x86_64-pc-windows-msvc
 
       - name: Set up Zig
@@ -53,51 +53,26 @@ jobs:
       - name: Install Node dependencies
         run: pnpm install --frozen-lockfile
 
-      - name: Require a prepared release
-        run: test -f .rivet/releaseplan.txt
-
-      - name: Lint
-        run: |
-          cargo fmt --all -- --check
-          cargo clippy --workspace
-
-      - name: Build Linux x64
-        working-directory: packages/rivet
-        run: pnpm exec napi build --target x86_64-unknown-linux-gnu --release -x
-
-      - name: Build Windows x64
-        working-directory: packages/rivet
-        run: pnpm exec napi build --target x86_64-pc-windows-msvc --release -x
-
-      - name: Build macOS x64
-        working-directory: packages/rivet
-        run: pnpm exec napi build --target x86_64-apple-darwin --release -x
-
-      - name: Build macOS ARM64
-        working-directory: packages/rivet
-        run: pnpm exec napi build --target aarch64-apple-darwin --release -x
-
-      - name: Build CLI
-        run: cargo build --release --bin rivet
-
-      - name: Test
-        run: cargo test --workspace
-
-      - name: Assemble native packages
-        working-directory: packages/rivet
-        run: |
-          pnpm exec napi create-npm-dirs
-          cp rivet-native.linux-x64-gnu.node npm/linux-x64-gnu/
-          cp ../../target/x86_64-apple-darwin/release/librivet.dylib npm/darwin-x64/rivet-native.darwin-x64.node
-          cp ../../target/aarch64-apple-darwin/release/librivet.dylib npm/darwin-arm64/rivet-native.darwin-arm64.node
-          cp ../../target/x86_64-pc-windows-msvc/release/rivet.dll npm/win32-x64-msvc/rivet-native.win32-x64-msvc.node
-
-      - name: Publish bumped packages
+      - name: Create version pull request or publish
+        uses: ./
+        with:
+          github-token: ${{ secrets.GITHUB_TOKEN }}
+          base-branch: main
+          branch: rivet-release
+          check: cargo run --release --bin rivet -- check --json
+          version: cargo run --release --bin rivet -- bump
+          publish: |
+            pnpm --dir packages/rivet exec napi build --target x86_64-unknown-linux-gnu --release -x
+            pnpm --dir packages/rivet exec napi build --target x86_64-pc-windows-msvc --release -x
+            pnpm --dir packages/rivet exec napi build --target x86_64-apple-darwin --release -x
+            pnpm --dir packages/rivet exec napi build --target aarch64-apple-darwin --release -x
+            cd packages/rivet
+            pnpm exec napi create-npm-dirs
+            cp rivet-native.linux-x64-gnu.node npm/linux-x64-gnu/
+            cp ../../target/x86_64-apple-darwin/release/librivet.dylib npm/darwin-x64/rivet-native.darwin-x64.node
+            cp ../../target/aarch64-apple-darwin/release/librivet.dylib npm/darwin-arm64/rivet-native.darwin-arm64.node
+            cp ../../target/x86_64-pc-windows-msvc/release/rivet.dll npm/win32-x64-msvc/rivet-native.win32-x64-msvc.node
+            cd ../..
+            cargo run --release --bin rivet -- release
         env:
-          NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
-        run: |
-          npm config set //registry.npmjs.org/:_authToken "$NODE_AUTH_TOKEN"
-          cargo run --release --bin rivet -- release
-
-      - name: Verify release plan was consumed
-        run: test ! -f .rivet/releaseplan.txt
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}

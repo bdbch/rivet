@@ -137,7 +137,7 @@ rivet bump [--dry-run] [--archive]
 CI-friendly status check. Designed for release pipelines.
 
 ```bash
-rivet check
+rivet check [--json]
 ```
 
 **Exit codes:**
@@ -147,6 +147,8 @@ rivet check
 | 0         | `PendingReleases`  | Release files exist — run `bump`           |
 | 1         | `ReadyToRelease`   | Release plan exists — run `release`        |
 | 0         | `NothingToRelease` | Nothing pending, nothing to do             |
+
+Use `--json` for automation. It prints one of `pending_releases`, `ready_to_release`, or `nothing_to_release`.
 
 **Example CI workflow:**
 
