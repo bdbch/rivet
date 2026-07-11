@@ -1,0 +1,99 @@
+---
+title: GitHub Action
+description: Create version pull requests and publish Rivet releases from GitHub Actions
+---
+
+Rivet provides a GitHub Action that automates the release workflow:
+
+1. Release files are merged into `main`.
+2. The Action runs `rivet bump` on a release branch and opens or updates a version pull request.
+3. After the version pull request is merged, the Action sees the release plan and runs the publish command.
+
+This keeps version changes and changelogs reviewable before anything is published.
+
+## Setup
+
+Create `.github/workflows/release.yml`:
+
+```yaml
+name: Rivet Release
+
+on:
+  push:
+    branches: [main]
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: pnpm/action-setup@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 24
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - uses: bdbch/rivet@v1
+        with:
+          publish: pnpm build && pnpm exec rivet release
+        env:
+          NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
+```
+
+The `GITHUB_TOKEN` must be allowed to write repository contents and pull requests. Add `NPM_TOKEN` as a repository secret with permission to publish the packages.
+
+## Native Builds
+
+The Action does not guess how a repository builds its packages. The `publish` input is a shell command, so it can build native artifacts before calling `rivet release`:
+
+```yaml
+with:
+  publish: |
+    pnpm build:native
+    pnpm exec rivet release
+```
+
+The command only runs after a version pull request has been merged and a release plan exists.
+
+## Inputs
+
+| Input             | Default                       | Description                                      |
+| ----------------- | ----------------------------- | ------------------------------------------------ |
+| `github-token`    | `${{ github.token }}`          | Token for branches and pull requests             |
+| `cwd`             | `.`                           | Working directory containing Rivet configuration |
+| `base-branch`     | `main`                        | Target branch for the version pull request       |
+| `branch`          | `rivet-release`               | Version pull request branch                      |
+| `check`           | `pnpm exec rivet check --json` | Release state command                            |
+| `version`         | `pnpm exec rivet bump`        | Version and changelog command                    |
+| `publish`         | none                          | Build and publish command                         |
+| `commit-message`  | `chore: version packages`     | Version branch commit message                    |
+| `pr-title`        | `chore: version packages`     | Version pull request title                       |
+
+Use `check --json` for custom check commands. Rivet returns `pending_releases`, `ready_to_release`, or `nothing_to_release`.
+
+## Action Versions
+
+The Action is consumed directly from the Rivet repository; Marketplace publication is optional. The `Release GitHub Action` workflow creates immutable version tags and updates the major compatibility tag:
+
+```yaml
+- uses: bdbch/rivet@v1
+```
+
+For stricter supply-chain pinning, replace `v1` with the commit SHA from a specific action release.
+
+## Outputs
+
+| Output                | Description                                   |
+| --------------------- | --------------------------------------------- |
+| `published`           | `true` when the publish command ran            |
+| `has-release`         | `true` when release files or a plan were found |
+| `pull-request-number` | Created or updated version PR number           |

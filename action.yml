@@ -1,0 +1,63 @@
+name: Rivet Release
+description: Create and update a Rivet version pull request, then publish after it is merged.
+author: bdbch
+
+inputs:
+  github-token:
+    description: GitHub token used to create branches and pull requests.
+    required: false
+    default: ${{ github.token }}
+  cwd:
+    description: Working directory containing the Rivet configuration.
+    required: false
+    default: .
+  base-branch:
+    description: Branch receiving the version pull request.
+    required: false
+    default: main
+  branch:
+    description: Branch used for the version pull request.
+    required: false
+    default: rivet-release
+  check:
+    description: Command used to determine whether Rivet needs versioning or publishing.
+    required: false
+    default: pnpm exec rivet check --json
+  version:
+    description: Command that consumes Rivet release files and creates the release plan.
+    required: false
+    default: pnpm exec rivet bump
+  publish:
+    description: Command that builds and publishes packages after the version PR is merged.
+    required: false
+  commit-message:
+    description: Commit message used on the version branch.
+    required: false
+    default: 'chore: version packages'
+  pr-title:
+    description: Title of the version pull request.
+    required: false
+    default: 'chore: version packages'
+  pr-body:
+    description: Optional body for the version pull request.
+    required: false
+  setup-git-user:
+    description: Configure the Git author as github-actions[bot].
+    required: false
+    default: 'true'
+
+outputs:
+  published:
+    description: Whether the publish command ran successfully.
+  has-release:
+    description: Whether Rivet found release files or a release plan.
+  pull-request-number:
+    description: Number of the created or updated version pull request.
+
+runs:
+  using: node24
+  main: action/index.js
+
+branding:
+  icon: package
+  color: blue

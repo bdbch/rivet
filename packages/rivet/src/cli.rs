@@ -59,7 +59,11 @@ pub enum Commands {
   },
 
   /// Check CI state — exit 0 if release files pending, exit 1 if ready to publish
-  Check,
+  Check {
+    /// Print a stable JSON status for automation
+    #[arg(long)]
+    json: bool,
+  },
 
   /// Publish all packages from the last bump to npm
   Release {

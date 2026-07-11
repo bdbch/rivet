@@ -12,7 +12,7 @@ use crate::error::Result;
 use crate::release::ReleaseManifest;
 use crate::workspace::find_workspace_root;
 
-pub fn cmd_check() -> Result<crate::CheckStatus> {
+pub fn cmd_check(json: bool) -> Result<crate::CheckStatus> {
   let root = find_workspace_root(Path::new("."))?;
   let (config, config_path) = RivetConfig::load(&root)?;
   let release_dir = crate::get_release_dir(&root, &config, &config_path);
@@ -20,16 +20,30 @@ pub fn cmd_check() -> Result<crate::CheckStatus> {
   let release_files = find_release_files(&release_dir).unwrap_or_default();
   let has_release_plan = ReleaseManifest::path(&release_dir).exists();
 
-  if !release_files.is_empty() {
-    println!("Release files exist, skip release");
-    return Ok(crate::CheckStatus::PendingReleases);
+  let status = if !release_files.is_empty() {
+    crate::CheckStatus::PendingReleases
+  } else if has_release_plan {
+    crate::CheckStatus::ReadyToRelease
+  } else {
+    crate::CheckStatus::NothingToRelease
+  };
+
+  if json {
+    let status_name = match status {
+      crate::CheckStatus::PendingReleases => "pending_releases",
+      crate::CheckStatus::ReadyToRelease => "ready_to_release",
+      crate::CheckStatus::NothingToRelease => "nothing_to_release",
+    };
+    println!(r#"{{"status":"{}"}}"#, status_name);
+  } else {
+    match status {
+      crate::CheckStatus::PendingReleases => println!("Release files exist, skip release"),
+      crate::CheckStatus::ReadyToRelease => {
+        println!("Release plan exists and files are clean, can release")
+      }
+      crate::CheckStatus::NothingToRelease => println!("Nothing to release"),
+    }
   }
 
-  if has_release_plan {
-    println!("Release plan exists and files are clean, can release");
-    return Ok(crate::CheckStatus::ReadyToRelease);
-  }
-
-  println!("Nothing to release");
-  Ok(crate::CheckStatus::NothingToRelease)
+  Ok(status)
 }

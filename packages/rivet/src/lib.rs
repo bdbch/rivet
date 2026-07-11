@@ -92,7 +92,7 @@ where
       cmd_bump(*dry_run, *archive)?;
       Ok(CmdResult::Ok)
     }
-    Commands::Check => Ok(CmdResult::CheckStatus(cmd_check()?)),
+    Commands::Check { json } => Ok(CmdResult::CheckStatus(cmd_check(*json)?)),
     Commands::Release { dry_run, tag } => {
       cmd_release(*dry_run, tag.as_deref())?;
       Ok(CmdResult::Ok)
