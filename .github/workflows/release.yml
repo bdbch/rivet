@@ -72,8 +72,18 @@ jobs:
             cp ../../target/x86_64-apple-darwin/release/librivet.dylib npm/darwin-x64/rivet-native.darwin-x64.node
             cp ../../target/aarch64-apple-darwin/release/librivet.dylib npm/darwin-arm64/rivet-native.darwin-arm64.node
             cp ../../target/x86_64-pc-windows-msvc/release/rivet.dll npm/win32-x64-msvc/rivet-native.win32-x64-msvc.node
+
+            VERSION="$(node -p "require('./package.json').version")"
+            RELEASE_ID="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${VERSION}" --jq .id 2>/dev/null || true)"
+            if [ -n "${RELEASE_ID}" ]; then
+              pnpm exec napi prepublish -t npm --gh-release-id "${RELEASE_ID}"
+            else
+              pnpm exec napi prepublish -t npm
+            fi
+
             cd ../..
             cargo run --release --bin rivet -- release
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          NPM_CONFIG_IGNORE_SCRIPTS: true
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
