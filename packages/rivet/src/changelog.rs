@@ -352,9 +352,10 @@ mod tests {
     let entry = make_global_entry(
       "@bdbchgg/rivet",
       "1.0.0-alpha.5",
-      vec![
-        ("Fixed a bug that caused the binary not to be included with the bundle", BumpType::Patch),
-      ],
+      vec![(
+        "Fixed a bug that caused the binary not to be included with the bundle",
+        BumpType::Patch,
+      )],
     );
 
     let section = generate_global_changelog_section(&[entry]);
@@ -371,7 +372,10 @@ mod tests {
     let entry = make_global_entry(
       "@scope/core",
       "2.1.0",
-      vec![("Add feature", BumpType::Minor), ("Fix bug", BumpType::Patch)],
+      vec![
+        ("Add feature", BumpType::Minor),
+        ("Fix bug", BumpType::Patch),
+      ],
     );
 
     let section = generate_global_changelog_section(&[entry]);
@@ -419,7 +423,11 @@ mod tests {
     );
 
     let section = generate_global_changelog_section(&[entry]);
-    let headings = ["### Major Changes", "### Minor Changes", "### Patch Changes"];
+    let headings = [
+      "### Major Changes",
+      "### Minor Changes",
+      "### Patch Changes",
+    ];
     for heading in headings {
       assert!(
         section.contains(heading),
@@ -438,11 +446,7 @@ mod tests {
       version: "1.0.0".to_string(),
       changes: IndexMap::new(),
     };
-    let real_entry = make_global_entry(
-      "@scope/core",
-      "1.1.0",
-      vec![("Hello", BumpType::Minor)],
-    );
+    let real_entry = make_global_entry("@scope/core", "1.1.0", vec![("Hello", BumpType::Minor)]);
 
     let section = generate_global_changelog_section(&[empty_entry, real_entry]);
     assert!(!section.contains("@scope/untouched"));
