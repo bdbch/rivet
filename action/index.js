@@ -132,9 +132,17 @@ async function ensureVersionBranch({ token, cwd, repository, baseBranch, branch,
 }
 
 function extractAddedLines(diffOutput) {
+  let insideHunk = false
+
   return diffOutput
     .split('\n')
-    .filter((line) => line.startsWith('+') && !line.startsWith('+++'))
+    .filter((line) => {
+      if (line.startsWith('@@')) {
+        insideHunk = true
+        return false
+      }
+      return insideHunk && line.startsWith('+')
+    })
     .map((line) => line.slice(1))
     .join('\n')
     .trim()
