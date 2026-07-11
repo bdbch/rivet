@@ -66,17 +66,17 @@ The command only runs after a version pull request has been merged and a release
 
 ## Inputs
 
-| Input             | Default                       | Description                                      |
-| ----------------- | ----------------------------- | ------------------------------------------------ |
-| `github-token`    | `${{ github.token }}`          | Token for branches and pull requests             |
-| `cwd`             | `.`                           | Working directory containing Rivet configuration |
-| `base-branch`     | Triggering branch             | Target branch for the version pull request       |
-| `branch`          | `rivet-release`               | Version pull request branch                      |
-| `check`           | `pnpm exec rivet check --json` | Release state command                            |
-| `version`         | `pnpm exec rivet bump`        | Version and changelog command                    |
-| `publish`         | none                          | Build and publish command                         |
-| `commit-message`  | `chore: version packages`     | Version branch commit message                    |
-| `pr-title`        | `chore: version packages`     | Version pull request title                       |
+| Input            | Default                        | Description                                      |
+| ---------------- | ------------------------------ | ------------------------------------------------ |
+| `github-token`   | `${{ github.token }}`          | Token for branches and pull requests             |
+| `cwd`            | `.`                            | Working directory containing Rivet configuration |
+| `base-branch`    | Triggering branch              | Target branch for the version pull request       |
+| `branch`         | `rivet-release`                | Version pull request branch                      |
+| `check`          | `pnpm exec rivet check --json` | Release state command                            |
+| `version`        | `pnpm exec rivet bump`         | Version and changelog command                    |
+| `publish`        | none                           | Build and publish command                        |
+| `commit-message` | `chore: version packages`      | Version branch commit message                    |
+| `pr-title`       | `chore: version packages`      | Version pull request title                       |
 
 Use `check --json` for custom check commands. Rivet returns `pending_releases`, `ready_to_release`, or `nothing_to_release`.
 
@@ -92,8 +92,8 @@ For stricter supply-chain pinning, replace `v1` with the commit SHA from a speci
 
 ## Outputs
 
-| Output                | Description                                   |
-| --------------------- | --------------------------------------------- |
+| Output                | Description                                    |
+| --------------------- | ---------------------------------------------- |
 | `published`           | `true` when the publish command ran            |
 | `has-release`         | `true` when release files or a plan were found |
 | `pull-request-number` | Created or updated version PR number           |

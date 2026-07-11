@@ -110,9 +110,9 @@ rivet bump [--dry-run] [--archive]
 
 **Options:**
 
-| Option      | Description                                                    |
-| ----------- | -------------------------------------------------------------- |
-| `--dry-run` | Preview changes without writing anything                       |
+| Option      | Description                                                          |
+| ----------- | -------------------------------------------------------------------- |
+| `--dry-run` | Preview changes without writing anything                             |
 | `--archive` | Move consumed release files to `.rivet/archive/` instead of deleting |
 
 **Process:**
@@ -142,11 +142,11 @@ rivet check [--json]
 
 **Exit codes:**
 
-| Exit code | Status             | Meaning                                    |
-| --------- | ------------------ | ------------------------------------------ |
-| 0         | `PendingReleases`  | Release files exist — run `bump`           |
-| 1         | `ReadyToRelease`   | Release plan exists — run `release`        |
-| 0         | `NothingToRelease` | Nothing pending, nothing to do             |
+| Exit code | Status             | Meaning                             |
+| --------- | ------------------ | ----------------------------------- |
+| 0         | `PendingReleases`  | Release files exist — run `bump`    |
+| 1         | `ReadyToRelease`   | Release plan exists — run `release` |
+| 0         | `NothingToRelease` | Nothing pending, nothing to do      |
 
 Use `--json` for automation. It prints one of `pending_releases`, `ready_to_release`, or `nothing_to_release`.
 
@@ -176,24 +176,24 @@ rivet release [--dry-run] [--tag <TAG>]
 
 **Options:**
 
-| Option      | Description                    |
-| ----------- | ------------------------------ |
-| `--dry-run` | Preview without publishing     |
+| Option      | Description                            |
+| ----------- | -------------------------------------- |
+| `--dry-run` | Preview without publishing             |
 | `--tag`     | Override npm dist-tag for all packages |
 
 Reads `.rivet/releaseplan.txt` — a plain text list of package names, one per line, alphabetically sorted. This file is created by `rivet bump`.
 
 **Behavior:**
 
-| Condition | Action |
-| --------- | ------ |
-| Private package (`"private": true`) | Skipped |
-| Version mismatch | Error — `package.json` version must match expected |
-| Already published | Skipped (checks `npm view <pkg>@<version> version`) |
-| No dist-tag override | Uses pre-release tag from version, or `"latest"` |
-| Pre-release version | Auto-tagged with pre-release tag |
-| Custom registry | Reads `publishConfig.registry` from `package.json` |
-| Access level | Reads `publishConfig.access` → falls back to config |
+| Condition                           | Action                                              |
+| ----------------------------------- | --------------------------------------------------- |
+| Private package (`"private": true`) | Skipped                                             |
+| Version mismatch                    | Error — `package.json` version must match expected  |
+| Already published                   | Skipped (checks `npm view <pkg>@<version> version`) |
+| No dist-tag override                | Uses pre-release tag from version, or `"latest"`    |
+| Pre-release version                 | Auto-tagged with pre-release tag                    |
+| Custom registry                     | Reads `publishConfig.registry` from `package.json`  |
+| Access level                        | Reads `publishConfig.access` → falls back to config |
 
 After successful publishing, `releaseplan.txt` is removed.
 
@@ -223,10 +223,10 @@ Enter pre-release mode for one or more packages.
 rivet pre enter <TAG> --package <PATTERN> [OPTIONS]
 ```
 
-| Flag | Description |
-| ---- | ----------- |
-| `--package` / `-p` | Package name or glob pattern (repeatable) |
-| `--force` | Force migration when package is already in pre-mode under a different tag |
+| Flag               | Description                                                               |
+| ------------------ | ------------------------------------------------------------------------- |
+| `--package` / `-p` | Package name or glob pattern (repeatable)                                 |
+| `--force`          | Force migration when package is already in pre-mode under a different tag |
 
 ```bash
 # Enter beta for a single package
@@ -265,19 +265,19 @@ rivet pre status
 
 **Package name resolution** works across all `pre` subcommands:
 
-| Input | Matches |
-| ----- | ------- |
-| `@scope/pkg-c` | Exact name |
-| `pkg-c` | Suffix match — resolves to `@scope/pkg-c` |
-| `"@scope/pre-*"` | Glob pattern |
-| `"!@scope/special"` | Negation (in config only) |
+| Input               | Matches                                   |
+| ------------------- | ----------------------------------------- |
+| `@scope/pkg-c`      | Exact name                                |
+| `pkg-c`             | Suffix match — resolves to `@scope/pkg-c` |
+| `"@scope/pre-*"`    | Glob pattern                              |
+| `"!@scope/special"` | Negation (in config only)                 |
 
 ---
 
 ## Version bump rules
 
-| Current | Bump  | Result |
-| ------- | ----- | ------ |
+| Current | Bump  | Result  |
+| ------- | ----- | ------- |
 | `1.2.3` | patch | `1.2.4` |
 | `1.2.3` | minor | `1.3.0` |
 | `1.2.3` | major | `2.0.0` |
@@ -305,7 +305,7 @@ rivet uses range intelligence to avoid false matches — it will not match `^1.2
 
 ## Exit codes
 
-| Code | Meaning |
-| ---- | ------- |
-| 0    | Success |
+| Code | Meaning                                   |
+| ---- | ----------------------------------------- |
+| 0    | Success                                   |
 | 1    | Error or `ReadyToRelease` (check command) |

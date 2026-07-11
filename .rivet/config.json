@@ -13,9 +13,7 @@
   "preMode": [
     {
       "tag": "alpha",
-      "packages": [
-        "@bdbchgg/rivet"
-      ]
+      "packages": ["@bdbchgg/rivet"]
     }
   ]
 }

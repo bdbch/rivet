@@ -145,8 +145,14 @@ function stripChangelogHeader(content) {
   return match ? content.slice(match[0].length) : content
 }
 
+function demoteHeadings(content, levels = 1) {
+  return content.replace(/^(#{1,6})(?=\s)/gm, (heading) => {
+    return '#'.repeat(Math.min(6, heading.length + levels))
+  })
+}
+
 async function extractChangelogFromDiff(cwd) {
-  const nameOnlyDiff = await run('git diff HEAD~1 --name-only --diff-filter=AM', cwd)
+  const nameOnlyDiff = await run('git diff HEAD~1 --name-only --diff-filter=AM --relative -- .', cwd)
   const changedFiles = nameOnlyDiff.stdout
     .split('\n')
     .map((l) => l.trim())
@@ -157,7 +163,7 @@ async function extractChangelogFromDiff(cwd) {
 
   if (rootChangelogs.length > 0) {
     const diff = await run('git diff HEAD~1 -- CHANGELOG.md', cwd)
-    return stripChangelogHeader(extractAddedLines(diff.stdout))
+    return demoteHeadings(stripChangelogHeader(extractAddedLines(diff.stdout)), 1)
   }
 
   if (packageChangelogs.length > 0) {
@@ -176,7 +182,7 @@ async function extractChangelogFromDiff(cwd) {
         packageName = path.basename(dir)
       }
 
-      sections.push(`### ${packageName}\n\n${content}`)
+      sections.push(`### ${packageName}\n\n${demoteHeadings(content, 2)}`)
     }
     return sections.join('\n\n')
   }
@@ -329,4 +335,4 @@ if (require.main === module) {
   })
 }
 
-module.exports = { getInput, shellQuote, extractAddedLines, stripChangelogHeader, extractChangelogFromDiff, generatePullRequestBody }
+module.exports = { getInput, shellQuote, extractAddedLines, stripChangelogHeader, demoteHeadings, extractChangelogFromDiff, generatePullRequestBody }

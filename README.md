@@ -63,14 +63,14 @@ I'd love to get some eyes from the Rust community on best practices, patterns, a
 
 ## Commands
 
-| Command         | Description                                                  |
-| --------------- | ------------------------------------------------------------ |
+| Command         | Description                                                                  |
+| --------------- | ---------------------------------------------------------------------------- |
 | `rivet init`    | Create `rivet.json` config and `.rivet/` directory (use `--force` to re-run) |
-| `rivet new`     | Create a release file (interactive or `--package --summary`) |
-| `rivet status`  | Show pending release files and calculated bumps              |
-| `rivet bump`    | Apply version bumps, update deps, generate changelogs        |
-| `rivet release` | Publish bumped packages to npm                               |
-| `rivet pre`     | Manage pre-release mode (interactive or `enter`/`exit`)      |
+| `rivet new`     | Create a release file (interactive or `--package --summary`)                 |
+| `rivet status`  | Show pending release files and calculated bumps                              |
+| `rivet bump`    | Apply version bumps, update deps, generate changelogs                        |
+| `rivet release` | Publish bumped packages to npm                                               |
+| `rivet pre`     | Manage pre-release mode (interactive or `enter`/`exit`)                      |
 
 ## Documentation
 
