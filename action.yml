@@ -38,9 +38,6 @@ inputs:
     description: Title of the version pull request.
     required: false
     default: 'chore: version packages'
-  pr-body:
-    description: Optional body for the version pull request.
-    required: false
   setup-git-user:
     description: Configure the Git author as github-actions[bot].
     required: false
