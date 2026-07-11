@@ -61,17 +61,19 @@ jobs:
           check: cargo run --release --bin rivet -- check --json
           version: cargo run --release --bin rivet -- bump
           publish: |
+            set -euo pipefail
             pnpm --dir packages/rivet exec napi build --target x86_64-unknown-linux-gnu --release -x
             pnpm --dir packages/rivet exec napi build --target x86_64-pc-windows-msvc --release -x
             pnpm --dir packages/rivet exec napi build --target x86_64-apple-darwin --release -x
             pnpm --dir packages/rivet exec napi build --target aarch64-apple-darwin --release -x
             cd packages/rivet
             pnpm exec napi create-npm-dirs
-            cp rivet-native.linux-x64-gnu.node npm/linux-x64-gnu/
+            cp ../../target/x86_64-unknown-linux-gnu/release/librivet.so npm/linux-x64-gnu/rivet-native.linux-x64-gnu.node
             cp ../../target/x86_64-apple-darwin/release/librivet.dylib npm/darwin-x64/rivet-native.darwin-x64.node
             cp ../../target/aarch64-apple-darwin/release/librivet.dylib npm/darwin-arm64/rivet-native.darwin-arm64.node
             cp ../../target/x86_64-pc-windows-msvc/release/rivet.dll npm/win32-x64-msvc/rivet-native.win32-x64-msvc.node
             cd ../..
             cargo run --release --bin rivet -- release
         env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           NPM_TOKEN: ${{ secrets.NPM_TOKEN }}
