@@ -1,22 +1,22 @@
 ---
 title: Configuration
-description: All configuration options for oxrls
+description: All configuration options for rivet
 ---
 
-oxrls looks for configuration in the following locations (in order of priority):
+rivet looks for configuration in the following locations (in order of priority):
 
-1. `.oxrls/config.json` — in the project root or any parent directory
-2. `oxrls.json` — in the project root or any parent directory
-3. `.oxrls.json` — hidden file variant
+1. `.rivet/config.json` — in the project root or any parent directory
+2. `rivet.json` — in the project root or any parent directory
+3. `.rivet.json` — hidden file variant
 
-If no config file is found, oxrls uses sensible defaults.
+If no config file is found, rivet uses sensible defaults.
 
 ## Default config
 
 ```json
 {
   "$schema": "https://oxrelease.dev/schema.json",
-  "releaseDir": ".oxrls",
+  "releaseDir": ".rivet",
   "changelog": true,
   "generatePackagesChangelog": true,
   "generateGlobalChangelog": false,
@@ -34,12 +34,12 @@ If no config file is found, oxrls uses sensible defaults.
 
 ### `releaseDir`
 
-Default: `".oxrls"`
+Default: `".rivet"`
 
 The directory where release files, pre-release state, and the release plan are stored.
 
 ```json
-{ "releaseDir": ".oxrls" }
+{ "releaseDir": ".rivet" }
 ```
 
 You can change this if you prefer a different name:
@@ -129,7 +129,7 @@ The default npm access level for publishing. Can be overridden per-package via `
 
 Default: `false`
 
-When enabled, oxrls also bumps the version in `Cargo.toml` files that are found alongside `package.json`. This is useful for Rust projects that also publish npm packages (e.g., napi-rs projects).
+When enabled, rivet also bumps the version in `Cargo.toml` files that are found alongside `package.json`. This is useful for Rust projects that also publish npm packages (e.g., napi-rs projects).
 
 ```json
 { "syncCargoToml": true }
@@ -161,7 +161,7 @@ Default: `[]`
 
 Groups of packages that **share the same bump type**. When a package in a linked group receives a bump, all packages in that group get the highest bump type found in the group. Each keeps its own version number.
 
-This is a unique oxrls feature — it sits between "completely independent" and "always the same version" (fixed groups).
+This is a unique rivet feature — it sits between "completely independent" and "always the same version" (fixed groups).
 
 Supports glob patterns and `!` negation:
 
@@ -203,14 +203,14 @@ Different packages can have different pre-release tags. A package can only be in
 
 ```bash
 # Interactive wizard
-oxrls init
+rivet init
 
 # Specify custom release directory
-oxrls init --release-dir .changes
+rivet init --release-dir .changes
 
 # Skip wizard, use defaults
-oxrls init --non-interactive
+rivet init --non-interactive
 
 # Overwrite existing config
-oxrls init --force
+rivet init --force
 ```

@@ -1,13 +1,13 @@
 ---
 title: Pre-releases
-description: Manage alpha, beta, and rc releases with oxrls
+description: Manage alpha, beta, and rc releases with rivet
 ---
 
-oxrls has built-in support for pre-release versions (alpha, beta, rc, or any tag you define). Pre-release versions are useful for testing changes before a stable release.
+rivet has built-in support for pre-release versions (alpha, beta, rc, or any tag you define). Pre-release versions are useful for testing changes before a stable release.
 
 ## How it works
 
-When a package is in pre-release mode, `oxrls bump` produces versions like `1.2.4-beta.1` instead of `1.2.4`. The pre-release tag is also used as the npm dist-tag during `oxrls release`.
+When a package is in pre-release mode, `rivet bump` produces versions like `1.2.4-beta.1` instead of `1.2.4`. The pre-release tag is also used as the npm dist-tag during `rivet release`.
 
 ## Configuration
 
@@ -15,7 +15,7 @@ You can configure pre-release mode in two ways:
 
 ### Via config file
 
-Add `preMode` entries to your `.oxrls/config.json`:
+Add `preMode` entries to your `.rivet/config.json`:
 
 ```json
 {
@@ -53,22 +53,22 @@ Use the `pre` command for interactive management:
 
 ```bash
 # Interactive: select packages and enter a tag
-oxrls pre
+rivet pre
 
 # Enter pre-release mode
-oxrls pre enter beta --package @scope/pkg-c
-oxrls pre enter beta --package @scope/pkg-c --package @scope/pkg-d
-oxrls pre enter beta --package "@scope/pre-*"
+rivet pre enter beta --package @scope/pkg-c
+rivet pre enter beta --package @scope/pkg-c --package @scope/pkg-d
+rivet pre enter beta --package "@scope/pre-*"
 
 # Migrate from one tag to another
-oxrls pre enter rc --package @scope/pkg-c --force
+rivet pre enter rc --package @scope/pkg-c --force
 
 # Exit pre-release mode
-oxrls pre exit --package @scope/pkg-c
-oxrls pre exit --package "@scope/pre-*"
+rivet pre exit --package @scope/pkg-c
+rivet pre exit --package "@scope/pre-*"
 
 # Show current status
-oxrls pre status
+rivet pre status
 ```
 
 Package name resolution supports:
@@ -80,7 +80,7 @@ Package name resolution supports:
 
 ## Version behavior
 
-When `oxrls bump` runs, pre-release versions are computed as follows:
+When `rivet bump` runs, pre-release versions are computed as follows:
 
 | Current version | Bump   | Result           |
 | --------------- | ------ | ---------------- |
@@ -99,7 +99,7 @@ Key behaviors:
 
 ## State file
 
-Pre-release state is stored in `.oxrls/pre.json`:
+Pre-release state is stored in `.rivet/pre.json`:
 
 ```json
 {
@@ -108,11 +108,11 @@ Pre-release state is stored in `.oxrls/pre.json`:
 }
 ```
 
-This file is managed automatically during `oxrls bump`.
+This file is managed automatically during `rivet bump`.
 
 ### Atomic counters
 
-The pre-release counter is **only saved after all file writes succeed**. If `oxrls bump` fails partway through, the counter does not increment. This means a retry produces the same pre-release version — no wasted pre-release numbers.
+The pre-release counter is **only saved after all file writes succeed**. If `rivet bump` fails partway through, the counter does not increment. This means a retry produces the same pre-release version — no wasted pre-release numbers.
 
 ## Publishing
 
@@ -120,17 +120,17 @@ Pre-release versions are published with the appropriate npm dist-tag:
 
 ```bash
 # Automatically uses the pre-release tag (e.g., --tag beta)
-oxrls release
+rivet release
 
 # Override the dist-tag
-oxrls release --tag next
+rivet release --tag next
 ```
 
-If a package has a pre-release version like `2.0.0-rc.1`, oxrls publishes with `--tag rc` automatically.
+If a package has a pre-release version like `2.0.0-rc.1`, rivet publishes with `--tag rc` automatically.
 
 ## Mixed pre-release and stable
 
-A single `oxrls bump` can handle both pre-release and stable packages:
+A single `rivet bump` can handle both pre-release and stable packages:
 
 - Pre-release packages get their tagged versions
 - Stable packages get normal versions

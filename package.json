@@ -1,16 +1,16 @@
 {
-  "name": "oxrls-monorepo",
+  "name": "rivet-monorepo",
   "private": true,
   "packageManager": "pnpm@11.0.0",
   "engines": {
     "node": ">= 18.17.0 < 19 || >= 20.3.0 < 21 || >= 21.1.0"
   },
   "scripts": {
-    "artifacts": "pnpm --filter @bdbchgg/oxrls artifacts",
-    "bench": "pnpm --filter @bdbchgg/oxrls bench",
-    "build": "pnpm --filter @bdbchgg/oxrls build",
-    "build:cli": "cargo build --release --bin oxrls",
-    "build:debug": "pnpm --filter @bdbchgg/oxrls build:debug",
+    "artifacts": "pnpm --filter @bdbchgg/rivet artifacts",
+    "bench": "pnpm --filter @bdbchgg/rivet bench",
+    "build": "pnpm --filter @bdbchgg/rivet build",
+    "build:cli": "cargo build --release --bin rivet",
+    "build:debug": "pnpm --filter @bdbchgg/rivet build:debug",
     "format": "run-p format:prettier format:rs format:toml",
     "format:prettier": "vp fmt .",
     "format:rs": "cargo fmt",
@@ -20,7 +20,7 @@
     "docs:start": "vp run docs#start",
     "lint": "vp lint .",
     "prepare": "vp config",
-    "test": "pnpm --filter @bdbchgg/oxrls test"
+    "test": "pnpm --filter @bdbchgg/rivet test"
   },
   "devDependencies": {
     "@taplo/cli": "^0.7.0",

@@ -1,62 +1,62 @@
 ---
 title: Getting Started
-description: Install from npm and run your first release with oxrls
+description: Install from npm and run your first release with rivet
 ---
 
-**oxrls** (short for _oxrelease_) is a Rust-powered release management CLI for JavaScript/TypeScript monorepos. It handles version bumps, changelogs, internal dependency updates, pre-release versions, and npm publishing.
+**rivet** (short for _oxrelease_) is a Rust-powered release management CLI for JavaScript/TypeScript monorepos. It handles version bumps, changelogs, internal dependency updates, pre-release versions, and npm publishing.
 
 ## Install from npm
 
-Install oxrls as a dev dependency in your project:
+Install rivet as a dev dependency in your project:
 
 ```bash
-npm install @bdbchgg/oxrls --save-dev
+npm install @bdbchgg/rivet --save-dev
 ```
 
 Or with pnpm:
 
 ```bash
-pnpm add @bdbchgg/oxrls --save-dev
+pnpm add @bdbchgg/rivet --save-dev
 ```
 
 Or with yarn:
 
 ```bash
-yarn add @bdbchgg/oxrls --dev
+yarn add @bdbchgg/rivet --dev
 ```
 
 ## Add to package.json
 
-Add oxrls commands to your `package.json` scripts for convenience:
+Add rivet commands to your `package.json` scripts for convenience:
 
 ```json
 {
   "scripts": {
-    "oxrls": "oxrls",
-    "changeset": "oxrls new",
-    "bump": "oxrls bump",
-    "release": "oxrls release"
+    "rivet": "rivet",
+    "changeset": "rivet new",
+    "bump": "rivet bump",
+    "release": "rivet release"
   }
 }
 ```
 
-Now you can run `npm run oxrls` (or `pnpm oxrls`) instead of `npx oxrls`.
+Now you can run `npm run rivet` (or `pnpm rivet`) instead of `npx rivet`.
 
 Once installed, verify it works:
 
 ```bash
-npx oxrls --help
+npx rivet --help
 ```
 
 ## Initialize
 
 ```bash
-oxrls init
+rivet init
 ```
 
 This starts an interactive wizard that sets up your project step by step:
 
-1. **Release directory** — where release files are stored (default: `.oxrls`)
+1. **Release directory** — where release files are stored (default: `.rivet`)
 2. **Changelog preferences** — per-package, global, or none
 3. **Base branch** — usually `main`
 4. **Internal dependency strategy** — when to update cross-package versions
@@ -65,43 +65,43 @@ This starts an interactive wizard that sets up your project step by step:
 7. **Linked groups** — packages that share the same bump type
 8. **Fixed groups** — packages that always share the same version
 
-The wizard creates `.oxrls/config.json` with your settings.
+The wizard creates `.rivet/config.json` with your settings.
 
 You can also skip the wizard:
 
 ```bash
-oxrls init --non-interactive
+rivet init --non-interactive
 ```
 
 ## Create a release file
 
 ```bash
 # Interactive — select packages, choose bump type, write summary
-oxrls new
+rivet new
 
 # Non-interactive
-oxrls new --package @scope/core:patch --summary "Fix transaction mapping bug"
+rivet new --package @scope/core:patch --summary "Fix transaction mapping bug"
 
 # Multiple packages
-oxrls new \
+rivet new \
   --package @scope/core:patch \
   --package @scope/react:minor \
   --summary "Improve editor behavior"
 ```
 
-This creates a markdown release file in `.oxrls/` with a descriptive name like `a3f2-calm-fox.md`.
+This creates a markdown release file in `.rivet/` with a descriptive name like `a3f2-calm-fox.md`.
 
 ## Preview and bump
 
 ```bash
 # See pending release files and calculated bumps
-oxrls status
+rivet status
 
 # Preview what would happen
-oxrls bump --dry-run
+rivet bump --dry-run
 
 # Apply version bumps, update deps, generate changelogs
-oxrls bump
+rivet bump
 ```
 
 The `bump` command:
@@ -121,16 +121,16 @@ If anything fails, nothing is written.
 
 ```bash
 # Publish all bumped packages to npm
-oxrls release
+rivet release
 
 # Preview without publishing
-oxrls release --dry-run
+rivet release --dry-run
 
 # Publish with a custom dist-tag
-oxrls release --tag next
+rivet release --tag next
 ```
 
-oxrls handles the details:
+rivet handles the details:
 
 - Skips private packages
 - Checks if a version already exists on the registry before publishing
@@ -141,23 +141,23 @@ oxrls handles the details:
 
 ```bash
 # Install
-npm install @bdbchgg/oxrls --save-dev
+npm install @bdbchgg/rivet --save-dev
 
 # Initialize
-oxrls init
+rivet init
 
 # Record changes
-oxrls new --package @scope/core:patch --summary "Fix transaction mapping bug"
+rivet new --package @scope/core:patch --summary "Fix transaction mapping bug"
 
 # Preview
-oxrls status
-oxrls bump --dry-run
+rivet status
+rivet bump --dry-run
 
 # Apply
-oxrls bump
+rivet bump
 
 # Publish
-oxrls release
+rivet release
 ```
 
 ## Requirements

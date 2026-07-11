@@ -1,4 +1,4 @@
-# oxrls
+# rivet
 
 > A Rust-powered release CLI for JS/TS monorepos — version bumps, changelogs, pre-release mode, and npm publishing.
 
@@ -9,12 +9,12 @@ This project contains two components:
 | Component                     | Description                                                |
 | ----------------------------- | ---------------------------------------------------------- |
 | **NAPI addon** (`vp_release`) | Native Node.js addon built with [napi-rs](https://napi.rs) |
-| **CLI** (`oxrls`)             | Rust binary for release management                         |
+| **CLI** (`rivet`)             | Rust binary for release management                         |
 
 ## Quick start
 
 ```bash
-npm install @bdbchgg/oxrls --save-dev
+npm install @bdbchgg/rivet --save-dev
 ```
 
 Then add this to your `package.json` scripts:
@@ -22,37 +22,37 @@ Then add this to your `package.json` scripts:
 ```json
 {
   "scripts": {
-    "oxrls": "oxrls", # for convenience, you can run `npm run oxrls` instead of `npx oxrls`
+    "rivet": "rivet", # for convenience, you can run `npm run rivet` instead of `npx rivet`
     "changeset": "oxrl new", # create a new release file (similar to `changeset add`)
-    "bump": "oxrls bump", # apply version bumps, update deps, generate changelogs, similar to `changeset version`
-    "release": "oxrls release" # publish to npm (after bumping versions)
+    "bump": "rivet bump", # apply version bumps, update deps, generate changelogs, similar to `changeset version`
+    "release": "rivet release" # publish to npm (after bumping versions)
   }
 }
 ```
 
 ```bash
 # Initialize
-oxrls init
+rivet init
 
 # Create a release file
-oxrls new --package @scope/core:patch --summary "Fix transaction mapping bug"
+rivet new --package @scope/core:patch --summary "Fix transaction mapping bug"
 
 # Preview
-oxrls status
-oxrls bump --dry-run
+rivet status
+rivet bump --dry-run
 
 # Pre-release mode (optional)
-oxrls pre # interactive, or
-oxrls pre enter alpha --package @scope/core # enter pre-release mode for @scope/core with "alpha" tag
-oxrls pre exit @scope/core # exit pre-release mode for @scope/core
+rivet pre # interactive, or
+rivet pre enter alpha --package @scope/core # enter pre-release mode for @scope/core with "alpha" tag
+rivet pre exit @scope/core # exit pre-release mode for @scope/core
 # Alternatively, you can set pre-release mode in the config file for specific packages or groups, and it will be applied automatically when bumping versions.
 # Just make sure to also remove the counter of the pre-released package in pre.json
 
 # Apply
-oxrls bump
+rivet bump
 
 # Publish to npm
-oxrls release
+rivet release
 ```
 
 ## Vibecode Disclaimer
@@ -65,22 +65,22 @@ I'd love to get some eyes from the Rust community on best practices, patterns, a
 
 | Command         | Description                                                  |
 | --------------- | ------------------------------------------------------------ |
-| `oxrls init`    | Create `oxrls.json` config and `.oxrls/` directory (use `--force` to re-run) |
-| `oxrls new`     | Create a release file (interactive or `--package --summary`) |
-| `oxrls status`  | Show pending release files and calculated bumps              |
-| `oxrls bump`    | Apply version bumps, update deps, generate changelogs        |
-| `oxrls release` | Publish bumped packages to npm                               |
-| `oxrls pre`     | Manage pre-release mode (interactive or `enter`/`exit`)      |
+| `rivet init`    | Create `rivet.json` config and `.rivet/` directory (use `--force` to re-run) |
+| `rivet new`     | Create a release file (interactive or `--package --summary`) |
+| `rivet status`  | Show pending release files and calculated bumps              |
+| `rivet bump`    | Apply version bumps, update deps, generate changelogs        |
+| `rivet release` | Publish bumped packages to npm                               |
+| `rivet pre`     | Manage pre-release mode (interactive or `enter`/`exit`)      |
 
 ## Documentation
 
-See the full documentation at [oxrls.dev](https://oxrls.dev) or browse the [docs app](./apps/docs) in this repository.
+See the full documentation at [rivet.dev](https://rivet.dev) or browse the [docs app](./apps/docs) in this repository.
 
 ## Build
 
 ```bash
 cargo build --release
-# binary at target/release/oxrls
+# binary at target/release/rivet
 ```
 
 ## NAPI Addon

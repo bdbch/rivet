@@ -1,0 +1,21 @@
+{
+  "schema": "https://oxrelease.dev/schema.json",
+  "releaseDir": ".rivet",
+  "changelog": true,
+  "generatePackagesChangelog": false,
+  "generateGlobalChangelog": true,
+  "updateInternalDependencies": "patch",
+  "baseBranch": "main",
+  "access": "public",
+  "syncCargoToml": true,
+  "fixed": [],
+  "linked": [],
+  "preMode": [
+    {
+      "tag": "alpha",
+      "packages": [
+        "@bdbchgg/rivet"
+      ]
+    }
+  ]
+}

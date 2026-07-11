@@ -1,14 +1,14 @@
 ---
 title: Command Reference
-description: Complete reference for all oxrls commands and their options
+description: Complete reference for all rivet commands and their options
 ---
 
-## `oxrls init`
+## `rivet init`
 
-Initialize oxrls configuration in your project.
+Initialize rivet configuration in your project.
 
 ```bash
-oxrls init [OPTIONS]
+rivet init [OPTIONS]
 ```
 
 **Options:**
@@ -16,7 +16,7 @@ oxrls init [OPTIONS]
 | Option                | Description                                  |
 | --------------------- | -------------------------------------------- |
 | `--force`             | Overwrite existing config                    |
-| `--release-dir <DIR>` | Custom release directory (default: `.oxrls`) |
+| `--release-dir <DIR>` | Custom release directory (default: `.rivet`) |
 | `--non-interactive`   | Skip the config wizard and use defaults      |
 
 **Interactive mode** (default): walks you through all config options step by step via a terminal wizard:
@@ -34,12 +34,12 @@ oxrls init [OPTIONS]
 
 ---
 
-## `oxrls new`
+## `rivet new`
 
 Create a new release file describing version bumps for one or more packages.
 
 ```bash
-oxrls new [OPTIONS]
+rivet new [OPTIONS]
 ```
 
 **Interactive mode** (no flags): select packages from your workspace, choose one bump type for all, enter summary + optional details.
@@ -47,8 +47,8 @@ oxrls new [OPTIONS]
 **Non-interactive mode:**
 
 ```bash
-oxrls new --package @scope/core:patch --summary "Fix bug"
-oxrls new \
+rivet new --package @scope/core:patch --summary "Fix bug"
+rivet new \
   --package @scope/core:patch \
   --package @scope/react:minor \
   --summary "Improve editor behavior"
@@ -84,12 +84,12 @@ Files use random descriptive names like `a3f2-calm-fox.md`.
 
 ---
 
-## `oxrls status`
+## `rivet status`
 
 Show pending release files and their calculated version bumps.
 
 ```bash
-oxrls status
+rivet status
 ```
 
 Displays:
@@ -100,12 +100,12 @@ Displays:
 
 ---
 
-## `oxrls bump`
+## `rivet bump`
 
 Consume all pending release files and apply version bumps.
 
 ```bash
-oxrls bump [--dry-run] [--archive]
+rivet bump [--dry-run] [--archive]
 ```
 
 **Options:**
@@ -113,7 +113,7 @@ oxrls bump [--dry-run] [--archive]
 | Option      | Description                                                    |
 | ----------- | -------------------------------------------------------------- |
 | `--dry-run` | Preview changes without writing anything                       |
-| `--archive` | Move consumed release files to `.oxrls/archive/` instead of deleting |
+| `--archive` | Move consumed release files to `.rivet/archive/` instead of deleting |
 
 **Process:**
 
@@ -125,19 +125,19 @@ oxrls bump [--dry-run] [--archive]
 6. Update `package.json` versions
 7. Update internal dependency ranges in dependent packages
 8. Generate or update `CHANGELOG.md` files
-9. Save release plan for `oxrls release`
+9. Save release plan for `rivet release`
 10. Consume release files (delete or archive)
 
 **Safety**: read everything → validate → compute plan → write files. If anything fails, nothing is written.
 
 ---
 
-## `oxrls check`
+## `rivet check`
 
 CI-friendly status check. Designed for release pipelines.
 
 ```bash
-oxrls check
+rivet check
 ```
 
 **Exit codes:**
@@ -152,24 +152,24 @@ oxrls check
 
 ```yaml
 # After merging a PR with release files:
-oxrls check     # exits 0
-oxrls bump      # applies bumps, creates releaseplan.txt
+rivet check     # exits 0
+rivet bump      # applies bumps, creates releaseplan.txt
 git commit -am "chore: bump versions"
 git push
 
 # Then trigger publish step:
-oxrls check     # exits 1 (ReadyToRelease)
-oxrls release   # publishes to npm
+rivet check     # exits 1 (ReadyToRelease)
+rivet release   # publishes to npm
 ```
 
 ---
 
-## `oxrls release`
+## `rivet release`
 
 Publish bumped packages to npm.
 
 ```bash
-oxrls release [--dry-run] [--tag <TAG>]
+rivet release [--dry-run] [--tag <TAG>]
 ```
 
 **Options:**
@@ -179,7 +179,7 @@ oxrls release [--dry-run] [--tag <TAG>]
 | `--dry-run` | Preview without publishing     |
 | `--tag`     | Override npm dist-tag for all packages |
 
-Reads `.oxrls/releaseplan.txt` — a plain text list of package names, one per line, alphabetically sorted. This file is created by `oxrls bump`.
+Reads `.rivet/releaseplan.txt` — a plain text list of package names, one per line, alphabetically sorted. This file is created by `rivet bump`.
 
 **Behavior:**
 
@@ -196,29 +196,29 @@ Reads `.oxrls/releaseplan.txt` — a plain text list of package names, one per l
 After successful publishing, `releaseplan.txt` is removed.
 
 ```bash
-oxrls release --dry-run        # preview
-oxrls release                   # publish everything
-oxrls release --tag next        # override dist-tag for all packages
+rivet release --dry-run        # preview
+rivet release                   # publish everything
+rivet release --tag next        # override dist-tag for all packages
 ```
 
 ---
 
-## `oxrls pre`
+## `rivet pre`
 
 Manage pre-release mode for packages.
 
 ```bash
-oxrls pre [SUBCOMMAND]
+rivet pre [SUBCOMMAND]
 ```
 
 **Interactive mode** (no subcommand): select packages from a list, then enter a tag name (defaults to `beta`).
 
-### `oxrls pre enter`
+### `rivet pre enter`
 
 Enter pre-release mode for one or more packages.
 
 ```bash
-oxrls pre enter <TAG> --package <PATTERN> [OPTIONS]
+rivet pre enter <TAG> --package <PATTERN> [OPTIONS]
 ```
 
 | Flag | Description |
@@ -228,37 +228,37 @@ oxrls pre enter <TAG> --package <PATTERN> [OPTIONS]
 
 ```bash
 # Enter beta for a single package
-oxrls pre enter beta --package @scope/pkg-c
+rivet pre enter beta --package @scope/pkg-c
 
 # Enter beta for multiple packages
-oxrls pre enter beta --package @scope/pkg-c --package @scope/pkg-d
+rivet pre enter beta --package @scope/pkg-c --package @scope/pkg-d
 
 # Enter beta using a glob pattern
-oxrls pre enter beta --package "@scope/pre-*"
+rivet pre enter beta --package "@scope/pre-*"
 
 # Migrate from one tag to another
-oxrls pre enter rc --package @scope/pkg-c --force
+rivet pre enter rc --package @scope/pkg-c --force
 ```
 
-### `oxrls pre exit`
+### `rivet pre exit`
 
 Exit pre-release mode for one or more packages.
 
 ```bash
-oxrls pre exit --package <PATTERN>
+rivet pre exit --package <PATTERN>
 ```
 
 ```bash
-oxrls pre exit --package @scope/pkg-c
-oxrls pre exit --package "@scope/pre-*"
+rivet pre exit --package @scope/pkg-c
+rivet pre exit --package "@scope/pre-*"
 ```
 
-### `oxrls pre status`
+### `rivet pre status`
 
 Show the current pre-release state for all packages.
 
 ```bash
-oxrls pre status
+rivet pre status
 ```
 
 **Package name resolution** works across all `pre` subcommands:
@@ -287,7 +287,7 @@ Multiple bumps for the same package: **major > minor > patch**. If a package rec
 
 ## Internal dependency updates
 
-oxrls updates dependency ranges in `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`:
+rivet updates dependency ranges in `dependencies`, `devDependencies`, `peerDependencies`, and `optionalDependencies`:
 
 | Original           | Updated            |
 | ------------------ | ------------------ |
@@ -299,7 +299,7 @@ oxrls updates dependency ranges in `dependencies`, `devDependencies`, `peerDepen
 | `workspace:~`      | `workspace:~`      |
 | `workspace:^1.2.3` | `workspace:^1.2.4` |
 
-oxrls uses range intelligence to avoid false matches — it will not match `^1.2.3` inside `^1.2.30` when updating to `1.2.4`.
+rivet uses range intelligence to avoid false matches — it will not match `^1.2.3` inside `^1.2.30` when updating to `1.2.4`.
 
 ## Exit codes
 

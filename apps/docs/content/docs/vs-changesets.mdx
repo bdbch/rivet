@@ -1,13 +1,13 @@
 ---
-title: oxrls vs Changesets
-description: How oxrls differs from Changesets
+title: rivet vs Changesets
+description: How rivet differs from Changesets
 ---
 
-oxrls follows the same release file workflow that Changesets popularized (create release files → bump → publish), but it makes different design choices in a few areas.
+rivet follows the same release file workflow that Changesets popularized (create release files → bump → publish), but it makes different design choices in a few areas.
 
 ## Globbing for groups
 
-oxrls supports glob patterns and `!` negation in all package-name lists in the config — `fixed`, `linked`, and `preMode`.
+rivet supports glob patterns and `!` negation in all package-name lists in the config — `fixed`, `linked`, and `preMode`.
 
 In Changesets, you list exact package names:
 
@@ -17,7 +17,7 @@ In Changesets, you list exact package names:
 }
 ```
 
-In oxrls, you can use globs:
+In rivet, you can use globs:
 
 ```json
 {
@@ -32,7 +32,7 @@ This means you can define a fixed or linked group for all packages under a scope
 
 ## Linked groups
 
-Changesets supports `fixed` groups (same version for all members). oxrls adds `linked` groups — packages that share the same bump type but keep their own version numbers.
+Changesets supports `fixed` groups (same version for all members). rivet adds `linked` groups — packages that share the same bump type but keep their own version numbers.
 
 ```json
 {
@@ -46,7 +46,7 @@ If `@scope/hooks` gets a `minor` bump and `@scope/utils` gets a `patch`, both ar
 
 In Changesets, pre-release is usually a global mode — either the whole repo is in pre-release or it isn't.
 
-oxrls takes a per-package approach. Different packages can have different pre-release tags simultaneously:
+rivet takes a per-package approach. Different packages can have different pre-release tags simultaneously:
 
 ```json
 {
@@ -60,33 +60,33 @@ oxrls takes a per-package approach. Different packages can have different pre-re
 You can also manage this via CLI:
 
 ```bash
-oxrls pre enter beta --package @scope/core
-oxrls pre enter alpha --package @scope/experimental-feature
+rivet pre enter beta --package @scope/core
+rivet pre enter alpha --package @scope/experimental-feature
 ```
 
-And a single `oxrls bump` can handle a mix of pre-release and stable packages in one run.
+And a single `rivet bump` can handle a mix of pre-release and stable packages in one run.
 
 ## Other differences
 
 ### `syncCargoToml`
 
-oxrls can bump versions in `Cargo.toml` alongside `package.json` — useful for Rust + npm projects (napi-rs, Tauri, etc.).
+rivet can bump versions in `Cargo.toml` alongside `package.json` — useful for Rust + npm projects (napi-rs, Tauri, etc.).
 
 ### CI check command
 
-oxrls has a `check` command designed for multi-step CI pipelines. It uses exit codes to signal the current state:
+rivet has a `check` command designed for multi-step CI pipelines. It uses exit codes to signal the current state:
 
 ```bash
-oxrls check   # exit 0 = pending or nothing, exit 1 = ready to release
+rivet check   # exit 0 = pending or nothing, exit 1 = ready to release
 ```
 
 ### Pre-release counters
 
-oxrls saves pre-release counters only after all file writes succeed. If a `bump` fails partway through, the counter is not incremented — a retry produces the same version. This avoids wasting pre-release numbers on failed runs.
+rivet saves pre-release counters only after all file writes succeed. If a `bump` fails partway through, the counter is not incremented — a retry produces the same version. This avoids wasting pre-release numbers on failed runs.
 
 ### Internal dependency strategies
 
-oxrls lets you control when internal dependency ranges update:
+rivet lets you control when internal dependency ranges update:
 
 | Strategy | Behavior |
 | -------- | -------- |
@@ -102,4 +102,4 @@ Release files get descriptive names like `a3f2-calm-fox.md` instead of timestamp
 
 ### Archive mode
 
-`oxrls bump --archive` moves consumed release files to `.oxrls/archive/` instead of deleting them.
+`rivet bump --archive` moves consumed release files to `.rivet/archive/` instead of deleting them.

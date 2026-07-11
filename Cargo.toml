@@ -1,6 +1,6 @@
 
 [workspace]
-members  = ["packages/oxrls"]
+members  = ["packages/rivet"]
 resolver = "2"
 
 [profile.release]

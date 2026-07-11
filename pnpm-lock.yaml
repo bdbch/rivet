@@ -79,7 +79,7 @@ importers:
         specifier: ^6.0.3
         version: 6.0.3
 
-  packages/oxrls:
+  packages/rivet:
     devDependencies:
       '@emnapi/core':
         specifier: ^1.5.0
@@ -118,16 +118,16 @@ importers:
         specifier: latest
         version: 0.1.22(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0)(typescript@6.0.3)(vite@8.0.14(@types/node@25.9.1)(esbuild@0.28.0)(jiti@2.7.0))
     optionalDependencies:
-      '@bdbchgg/oxrls-darwin-arm64':
+      '@bdbchgg/rivet-darwin-arm64':
         specifier: 1.0.0-alpha.4
         version: 1.0.0-alpha.4
-      '@bdbchgg/oxrls-darwin-x64':
+      '@bdbchgg/rivet-darwin-x64':
         specifier: 1.0.0-alpha.4
         version: 1.0.0-alpha.4
-      '@bdbchgg/oxrls-linux-x64-gnu':
+      '@bdbchgg/rivet-linux-x64-gnu':
         specifier: 1.0.0-alpha.4
         version: 1.0.0-alpha.4
-      '@bdbchgg/oxrls-win32-x64-msvc':
+      '@bdbchgg/rivet-win32-x64-msvc':
         specifier: 1.0.0-alpha.4
         version: 1.0.0-alpha.4
 
@@ -137,26 +137,26 @@ packages:
     resolution: {integrity: sha512-UrcABB+4bUrFABwbluTIBErXwvbsU/V7TZWfmbgJfbkwiBuziS9gxdODUyuiecfdGQ85jglMW6juS3+z5TsKLw==}
     engines: {node: '>=10'}
 
-  '@bdbchgg/oxrls-darwin-arm64@1.0.0-alpha.4':
+  '@bdbchgg/rivet-darwin-arm64@1.0.0-alpha.4':
     resolution: {integrity: sha512-1VS1M01ZDF9liXi8m5/EXapR1JsGBsz95lRcWdBSG1JcNTztWOco2uIVmvIbQu2Ia5BIjqL8KRVl0CTu+UjYWw==}
     engines: {node: '>= 18.17.0 < 19 || >= 20.3.0 < 21 || >= 21.1.0'}
     cpu: [arm64]
     os: [darwin]
 
-  '@bdbchgg/oxrls-darwin-x64@1.0.0-alpha.4':
+  '@bdbchgg/rivet-darwin-x64@1.0.0-alpha.4':
     resolution: {integrity: sha512-bqKOqGS9WxrwNgXPF/FG6Q8K9mhLEik6bjnNSWxx9JD4coKjXJnxKCPPb1GdwU28coIhU/i8JX/8xtbQibZGEw==}
     engines: {node: '>= 18.17.0 < 19 || >= 20.3.0 < 21 || >= 21.1.0'}
     cpu: [x64]
     os: [darwin]
 
-  '@bdbchgg/oxrls-linux-x64-gnu@1.0.0-alpha.4':
+  '@bdbchgg/rivet-linux-x64-gnu@1.0.0-alpha.4':
     resolution: {integrity: sha512-CsJgn8clHNdOOj+8PIDBMWL/iIkpkhbFRWPcj0Js/vDO395l1F17Rum4ufYyI9rm5O8KeRMSitujSqDCuiGq9w==}
     engines: {node: '>= 18.17.0 < 19 || >= 20.3.0 < 21 || >= 21.1.0'}
     cpu: [x64]
     os: [linux]
     libc: [glibc]
 
-  '@bdbchgg/oxrls-win32-x64-msvc@1.0.0-alpha.4':
+  '@bdbchgg/rivet-win32-x64-msvc@1.0.0-alpha.4':
     resolution: {integrity: sha512-kY9v937/ORExgBn1kd7FqMgpANbiMpPKAp3oeKU6Qk7C49Aua/Q7+0orDkaRlZY4kn7buyoi4cBSztwa9NoMvw==}
     engines: {node: '>= 18.17.0 < 19 || >= 20.3.0 < 21 || >= 21.1.0'}
     cpu: [x64]
@@ -4296,16 +4296,16 @@ snapshots:
 
   '@alloc/quick-lru@5.2.0': {}
 
-  '@bdbchgg/oxrls-darwin-arm64@1.0.0-alpha.4':
+  '@bdbchgg/rivet-darwin-arm64@1.0.0-alpha.4':
     optional: true
 
-  '@bdbchgg/oxrls-darwin-x64@1.0.0-alpha.4':
+  '@bdbchgg/rivet-darwin-x64@1.0.0-alpha.4':
     optional: true
 
-  '@bdbchgg/oxrls-linux-x64-gnu@1.0.0-alpha.4':
+  '@bdbchgg/rivet-linux-x64-gnu@1.0.0-alpha.4':
     optional: true
 
-  '@bdbchgg/oxrls-win32-x64-msvc@1.0.0-alpha.4':
+  '@bdbchgg/rivet-win32-x64-msvc@1.0.0-alpha.4':
     optional: true
 
   '@cto.af/wtf8@0.0.5': {}
