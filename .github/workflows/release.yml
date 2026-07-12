@@ -74,6 +74,8 @@ jobs:
             cp ../../target/x86_64-pc-windows-msvc/release/rivet.dll npm/win32-x64-msvc/rivet-native.win32-x64-msvc.node
 
             VERSION="$(node -p "require('./package.json').version")"
+            DIST_TAG="$(node -p "const version = require('./package.json').version; const pre = version.split('-')[1]; process.stdout.write(pre ? pre.split('.')[0] : 'latest')")"
+            export npm_config_tag="${DIST_TAG}"
             RELEASE_ID="$(gh api "repos/${GITHUB_REPOSITORY}/releases/tags/v${VERSION}" --jq .id 2>/dev/null || true)"
             if [ -n "${RELEASE_ID}" ]; then
               pnpm exec napi prepublish -t npm --gh-release-id "${RELEASE_ID}"
